@@ -1,4 +1,4 @@
-// Webcraft Release 2.0.0 Main Controller (Multiplayer, Day/Night, Drag Split, Hand Sway & Quick Craft)
+// Webcraft Release 3.0.0 Main Controller (Sound Synth FX, 3D Mobs, Falling Sand & Complete Bug Fixes)
 document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('renderCanvas');
     const startOverlay = document.getElementById('startOverlay');
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cursorItemEl = document.getElementById('cursorItem');
     const recipeBookListEl = document.getElementById('recipeBookList');
 
-    // Instantiate Core Systems
+    // Instantiate Core Engines
     const worldBridge = new WorldBridge();
     await worldBridge.init(Math.floor(Math.random() * 10000));
 
@@ -27,15 +27,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inventory = new InventorySystem();
     const crafting = new CraftingEngine(inventory);
     const mining = new MiningEngine();
+    const audioManager = new SoundEngine();
+    const mobManager = new MobManager(worldBridge);
 
     let selectedHotbarIndex = 0;
     let isPointerLocked = false;
     let isMouseDown = false;
     let targetRaycast = null;
 
-    // Day/Night Cycle State
-    let dayTime = 0.2; // 0.0 = Noon, 0.5 = Sunset, 0.75 = Night
-    const DAY_SPEED = 0.005; // Time speed
+    // Day/Night & Falling Physics State
+    let dayTime = 0.2;
+    const DAY_SPEED = 0.005;
+    let stepSoundTimer = 0;
+    let fallingSandTimer = 0;
 
     // Initial Mesh Generation
     let meshData = worldBridge.buildMesh();
@@ -82,9 +86,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // --------------------------------------------------
-    // Title Menu & Home Screen Event Listeners
+    // Title Menu & Options Event Listeners
     // --------------------------------------------------
     document.getElementById('btnSingleplayer').addEventListener('click', () => {
+        audioManager.initCtx();
         canvas.requestPointerLock();
     });
 
@@ -213,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderHotbar();
 
     // --------------------------------------------------
-    // Recipe Book One-Click Quick Crafting
+    // Recipe Book & One-Click Quick Crafting
     // --------------------------------------------------
     function renderRecipeBook() {
         recipeBookListEl.innerHTML = '';
@@ -240,9 +245,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             itemEl.addEventListener('click', () => {
                 let success = crafting.quickCraftRecipe(rec.id);
                 if (success) {
+                    audioManager.playCraftSuccess();
                     refreshGUI();
-                } else {
-                    console.log('Not enough ingredients for ' + rec.name);
                 }
             });
 
@@ -461,6 +465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.addEventListener('mousedown', (e) => {
+        audioManager.initCtx();
         if (isPointerLocked && e.button === 0) {
             isMouseDown = true;
         } else if (isPointerLocked && e.button === 2) {
@@ -483,6 +488,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     worldBridge.setBlock(p[0], p[1], p[2], heldSlot.id);
                     heldSlot.count--;
                     if (heldSlot.count <= 0) inventory.slots[selectedHotbarIndex] = null;
+
+                    audioManager.playBlockPlace();
 
                     meshData = worldBridge.buildMesh();
                     renderer.updateMeshBuffer(meshData);
@@ -517,7 +524,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.code === 'KeyS') keys.backward = true;
         if (e.code === 'KeyA') keys.left = true;
         if (e.code === 'KeyD') keys.right = true;
-        if (e.code === 'Space') keys.jump = true;
+        if (e.code === 'Space') {
+            if (!keys.jump && physics.onGround) audioManager.playJump();
+            keys.jump = true;
+        }
         if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.sneak = true;
 
         if (e.code === 'KeyE') {
@@ -556,7 +566,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // --------------------------------------------------
-    // Main Game Loop (with Day/Night Cycle & MP Transform Sync)
+    // Main Game Loop (with Mobs, Falling Sand & Web Audio)
     // --------------------------------------------------
     let lastTime = performance.now();
     let mpSyncTimer = 0;
@@ -568,9 +578,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isPointerLocked) {
             physics.update(camera, keys, dt);
 
-            // Hand Swaying animation when moving
+            // Footstep audio & Hand sway
             let isMoving = keys.forward || keys.backward || keys.left || keys.right;
-            if (isMoving) {
+            if (isMoving && physics.onGround) {
+                stepSoundTimer += dt;
+                if (stepSoundTimer >= 0.35) {
+                    stepSoundTimer = 0;
+                    audioManager.playFootstep();
+                }
                 let swayX = Math.sin(now * 0.01) * 8;
                 let swayY = Math.cos(now * 0.02) * 6;
                 heldItemHand.style.transform = `translate(${swayX}px, ${swayY}px)`;
@@ -578,7 +593,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 heldItemHand.style.transform = `translate(0px, 0px)`;
             }
 
-            // MP Transform Broadcast (every 100ms)
+            // Update 3D Mobs AI
+            mobManager.update(camera.position, dt);
+
+            // MP Transform Broadcast
             mpSyncTimer += dt;
             if (mpSyncTimer >= 0.1) {
                 mpSyncTimer = 0;
@@ -586,17 +604,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
+        // Falling Sand Physics Simulation Loop
+        fallingSandTimer += dt;
+        if (fallingSandTimer >= 0.3) {
+            fallingSandTimer = 0;
+            let updatedSand = false;
+            let px = Math.floor(camera.position[0]);
+            let pz = Math.floor(camera.position[2]);
+
+            // Scan area around player for floating sand
+            for (let sx = px - 12; sx <= px + 12; sx++) {
+                for (let sz = pz - 12; sz <= pz + 12; sz++) {
+                    for (let sy = 1; sy < 60; sy++) {
+                        if (worldBridge.getBlock(sx, sy, sz) === 8 && worldBridge.getBlock(sx, sy - 1, sz) === 0) {
+                            worldBridge.setBlock(sx, sy, sz, 0);
+                            worldBridge.setBlock(sx, sy - 1, sz, 8);
+                            updatedSand = true;
+                        }
+                    }
+                }
+            }
+            if (updatedSand) {
+                meshData = worldBridge.buildMesh();
+                renderer.updateMeshBuffer(meshData);
+            }
+        }
+
         // Day/Night Cycle Calculation
         dayTime = (dayTime + dt * DAY_SPEED) % 1.0;
         let skyR = 0.55, skyG = 0.72, skyB = 0.98;
-        if (dayTime > 0.45 && dayTime <= 0.55) { // Sunset
+        if (dayTime > 0.45 && dayTime <= 0.55) {
             let factor = (dayTime - 0.45) / 0.1;
             skyR = 0.55 + factor * 0.35;
             skyG = 0.72 - factor * 0.30;
             skyB = 0.98 - factor * 0.75;
-        } else if (dayTime > 0.55 && dayTime <= 0.85) { // Night
+        } else if (dayTime > 0.55 && dayTime <= 0.85) {
             skyR = 0.05; skyG = 0.08; skyB = 0.18;
-        } else if (dayTime > 0.85 && dayTime <= 0.95) { // Sunrise
+        } else if (dayTime > 0.85 && dayTime <= 0.95) {
             let factor = (dayTime - 0.85) / 0.1;
             skyR = 0.05 + factor * 0.50;
             skyG = 0.08 + factor * 0.64;
@@ -614,6 +658,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             let finished = mining.updateMining(targetRaycast.hit, hitType, heldItem ? inventory.getItemMeta(heldItem.id) : null, dt);
 
             if (finished) {
+                audioManager.playBlockBreak();
+
                 worldBridge.setBlock(targetRaycast.hit[0], targetRaycast.hit[1], targetRaycast.hit[2], 0);
                 inventory.addItem(hitType, 1);
                 renderHotbar();
@@ -627,15 +673,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             mining.resetMining();
         }
 
-        // Render Frame with Mining Cracks
+        // Render Frame
         renderer.render(camera, targetRaycast ? targetRaycast.hit : null, mining.miningProgress);
 
         let pos = camera.position;
         debugHud.innerHTML = `
-            <div><strong>Webcraft 2.0.0 (P2P Multiplayer & Survival Engine)</strong></div>
+            <div><strong>Webcraft 3.0.0 Super Update</strong></div>
             <div>XYZ: ${pos[0].toFixed(2)} / ${pos[1].toFixed(2)} / ${pos[2].toFixed(2)}</div>
-            <div>Time of Day: ${(dayTime * 24).toFixed(1)}h</div>
-            <div>Multiplayer: ${mpManager.myPeerId ? 'Peer Ready (' + Object.keys(mpManager.connections).length + ' Peer Connected)' : 'Offline'}</div>
+            <div>Active Mobs: ${mobManager.mobs.length} (Pigs, Sheep, Zombies)</div>
+            <div>Multiplayer: ${mpManager.myPeerId ? 'Ready (' + Object.keys(mpManager.connections).length + ' Peer)' : 'Offline'}</div>
             <div>Polygons: ${(renderer.vertexCount / 3).toLocaleString()} Triangles</div>
         `;
 

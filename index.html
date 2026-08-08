@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Webcraft Release 2.0.0: Full 3D Voxel Survival Game with WebRTC P2P Multiplayer, Day-Night Cycle, Hand Item Swaying, One-Click Quick Crafting & Item Drag-Splitting in WebGL.">
-    <title>Webcraft - Release 2.0.0 (Multiplayer & Survival Engine)</title>
+    <meta name="description" content="Webcraft Release 3.0.0 Super Update: Full 3D Voxel Survival Game with WebRTC P2P Multiplayer, Web Audio Sound Synth, 3D Voxel Mobs (Pigs, Sheep, Zombies), Sand Gravity, and Day-Night Cycle.">
+    <title>Webcraft - Release 3.0.0 Super Update</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟩</text></svg>">
     <link rel="stylesheet" href="css/style.css">
     
@@ -127,7 +127,7 @@
         <div class="title-menu-card">
             <div class="logo-wrapper">
                 <h1 class="mc-title">WEBCRAFT</h1>
-                <div class="splash-text">Release 2.0.0 Multiplayer Engine!</div>
+                <div class="splash-text">3.0.0 Super Update!</div>
             </div>
             
             <div class="menu-buttons">
@@ -137,7 +137,7 @@
             </div>
 
             <div class="controls-guide">
-                <div><strong>WASD</strong> : Move</div>
+                <div><strong>WASD</strong> : Move (SFX)</div>
                 <div><strong>SPACE</strong> : Jump</div>
                 <div><strong>SHIFT</strong> : Sneak</div>
                 <div><strong>E KEY</strong> : Inventory & Quick Craft</div>
@@ -149,7 +149,7 @@
         </div>
     </div>
 
-    <!-- Options Modal -->
+    <!-- Options Modal (z-index 200) -->
     <div id="optionsModal" class="gui-modal" style="display: none;">
         <div class="gui-window options-window">
             <div class="gui-header">
@@ -169,7 +169,7 @@
         </div>
     </div>
 
-    <!-- Multiplayer Lobby Modal (WebRTC P2P) -->
+    <!-- Multiplayer Lobby Modal (WebRTC P2P) (z-index 200) -->
     <div id="multiplayerModal" class="gui-modal" style="display: none;">
         <div class="gui-window mp-window">
             <div class="gui-header">
@@ -198,10 +198,7 @@
         </div>
     </div>
 
-    <!-- Optional Emscripten Generated JS -->
-    <script src="js/webcraft_wasm.js" onerror="console.log('Using JS Fallback Engine');"></script>
-
-    <!-- Engine Scripts -->
+    <!-- Engine Scripts (Zero 404 Requests) -->
     <script src="js/textures.js"></script>
     <script src="js/camera.js"></script>
     <script src="js/physics.js"></script>
@@ -209,6 +206,8 @@
     <script src="js/inventory.js"></script>
     <script src="js/crafting.js"></script>
     <script src="js/mining.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/mobs.js"></script>
     <script src="js/wasm_bridge.js"></script>
     <script src="js/multiplayer.js"></script>
     <script src="js/main.js"></script>
