@@ -1,24 +1,22 @@
-// Minecraft-style Full Inventory System & Slot Management
+// Minecraft-style Full Inventory System with Drag-Splitting & Stacking
 class InventorySystem {
     constructor() {
         this.HOTBAR_SIZE = 9;
         this.MAIN_SIZE = 27;
         
-        // 9 Hotbar + 27 Main Inventory Slots
         this.slots = new Array(36).fill(null);
-        
-        // Crafting Slots (2x2 or 3x3)
         this.craftingGrid = new Array(9).fill(null);
         this.craftingResult = null;
-
-        // Currently dragged item on cursor
         this.cursorItem = null;
+
+        // Drag-splitting state
+        this.isDragSplitting = false;
+        this.draggedSlots = new Set();
 
         this.initDefaultItems();
     }
 
     initDefaultItems() {
-        // Initialize player with starter items in hotbar
         this.slots[0] = { id: 1, count: 64, name: 'Grass Block' };
         this.slots[1] = { id: 2, count: 64, name: 'Dirt Block' };
         this.slots[2] = { id: 3, count: 64, name: 'Stone Block' };
@@ -60,15 +58,18 @@ class InventorySystem {
             26: { name: 'Green Wool', isBlock: true },
             27: { name: 'Yellow Wool', isBlock: true },
             28: { name: 'Black Wool', isBlock: true },
+            29: { name: 'Water', isBlock: true },
+            30: { name: 'Lava', isBlock: true },
+
             // Tools
-            29: { name: 'Wooden Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 2.0 },
-            30: { name: 'Wooden Axe', isBlock: false, toolType: 'axe', tierMultiplier: 2.0 },
-            31: { name: 'Wooden Shovel', isBlock: false, toolType: 'shovel', tierMultiplier: 2.0 },
-            32: { name: 'Wooden Sword', isBlock: false, toolType: 'sword', tierMultiplier: 1.5 },
-            33: { name: 'Stone Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 4.0 },
-            34: { name: 'Stone Axe', isBlock: false, toolType: 'axe', tierMultiplier: 4.0 },
-            35: { name: 'Iron Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 6.0 },
-            36: { name: 'Diamond Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 8.0 },
+            31: { name: 'Wooden Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 2.0 },
+            32: { name: 'Wooden Axe', isBlock: false, toolType: 'axe', tierMultiplier: 2.0 },
+            33: { name: 'Wooden Shovel', isBlock: false, toolType: 'shovel', tierMultiplier: 2.0 },
+            34: { name: 'Wooden Sword', isBlock: false, toolType: 'sword', tierMultiplier: 1.5 },
+            35: { name: 'Stone Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 4.0 },
+            36: { name: 'Stone Axe', isBlock: false, toolType: 'axe', tierMultiplier: 4.0 },
+            37: { name: 'Iron Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 6.0 },
+            38: { name: 'Diamond Pickaxe', isBlock: false, toolType: 'pickaxe', tierMultiplier: 8.0 },
             // Materials
             41: { name: 'Stick', isBlock: false },
             42: { name: 'Coal', isBlock: false },
@@ -77,12 +78,11 @@ class InventorySystem {
             45: { name: 'Diamond', isBlock: false }
         };
 
-        return ITEMS[id] || { name: 'Unknown Item', isBlock: false };
+        return ITEMS[id] || { name: 'Item', isBlock: false };
     }
 
     addItem(id, count = 1) {
         let meta = this.getItemMeta(id);
-        // Try stacking
         for (let i = 0; i < 36; i++) {
             if (this.slots[i] && this.slots[i].id === id && this.slots[i].count < 64) {
                 let addable = Math.min(count, 64 - this.slots[i].count);
@@ -91,13 +91,40 @@ class InventorySystem {
                 if (count <= 0) return true;
             }
         }
-        // Place in empty slot
         for (let i = 0; i < 36; i++) {
             if (!this.slots[i]) {
                 this.slots[i] = { id, count, name: meta.name };
                 return true;
             }
         }
-        return false; // Inventory full
+        return false;
+    }
+
+    // Minecraft Item Drag-Split Logic
+    dragSplitPass(slotIndex) {
+        if (!this.cursorItem || this.cursorItem.count <= 0) return;
+        if (this.draggedSlots.has(slotIndex)) return;
+
+        let currentSlot = this.slots[slotIndex];
+        if (!currentSlot || currentSlot.id === this.cursorItem.id) {
+            this.draggedSlots.add(slotIndex);
+            
+            // Distribute 1 item to this slot
+            if (!currentSlot) {
+                this.slots[slotIndex] = { ...this.cursorItem, count: 1 };
+            } else if (currentSlot.count < 64) {
+                currentSlot.count++;
+            }
+            this.cursorItem.count--;
+
+            if (this.cursorItem.count <= 0) {
+                this.cursorItem = null;
+            }
+        }
+    }
+
+    endDragSplit() {
+        this.isDragSplitting = false;
+        this.draggedSlots.clear();
     }
 }

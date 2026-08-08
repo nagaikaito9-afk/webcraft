@@ -45,6 +45,27 @@ html, body {
 #crosshair::before { top: 8px; left: 0; width: 18px; height: 2px; }
 #crosshair::after { top: 0; left: 8px; width: 2px; height: 18px; }
 
+/* First Person Hand Sway (Right Bottom held item) */
+#heldItemHand {
+    position: absolute;
+    bottom: -10px;
+    right: 15vw;
+    width: 96px;
+    height: 96px;
+    pointer-events: none;
+    z-index: 15;
+    transform-origin: bottom right;
+    transition: transform 0.08s ease-out;
+}
+
+#heldItemHand .hand-icon {
+    width: 96px;
+    height: 96px;
+    background-size: cover;
+    image-rendering: pixelated;
+    filter: drop-shadow(4px 4px 8px rgba(0,0,0,0.6));
+}
+
 /* Debug HUD (F3) */
 #debugHud {
     position: absolute;
@@ -66,7 +87,7 @@ html, body {
 
 #debugHud strong { color: #38bdf8; }
 
-/* Hotbar Container (9 Slots) */
+/* Hotbar Container */
 #hotbarContainer {
     position: absolute;
     bottom: 24px;
@@ -159,10 +180,7 @@ html, body {
     font-family: 'Press Start 2P', monospace;
 }
 
-.flex-layout {
-    display: flex;
-    gap: 16px;
-}
+.flex-layout { display: flex; gap: 16px; }
 
 /* Left Recipe Book Panel */
 .recipe-book-panel {
@@ -170,13 +188,13 @@ html, body {
     border: 3px solid #373737;
     border-radius: 4px;
     padding: 12px;
-    width: 220px;
+    width: 230px;
     display: flex;
     flex-direction: column;
 }
 
 .recipe-title {
-    font-size: 10px;
+    font-size: 9px;
     color: #222;
     margin-bottom: 12px;
     text-align: center;
@@ -209,10 +227,7 @@ html, body {
     border-color: #0284c7;
 }
 
-.recipe-name {
-    font-size: 8px;
-    color: #111;
-}
+.recipe-name { font-size: 8px; color: #111; }
 
 .gui-header {
     display: flex;
@@ -223,11 +238,7 @@ html, body {
     padding-bottom: 8px;
 }
 
-.gui-header h2 {
-    font-size: 13px;
-    color: #262626;
-    text-shadow: 1px 1px 0 #ffffff;
-}
+.gui-header h2 { font-size: 13px; color: #262626; text-shadow: 1px 1px 0 #ffffff; }
 
 .gui-close {
     background: #e11d48;
@@ -239,17 +250,9 @@ html, body {
     border-radius: 2px;
 }
 
-.gui-body {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
+.gui-body { display: flex; flex-direction: column; gap: 12px; }
 
-.section-label {
-    font-size: 9px;
-    color: #4b5563;
-    margin-bottom: 4px;
-}
+.section-label { font-size: 9px; color: #4b5563; margin-bottom: 4px; }
 
 .crafting-flex {
     display: flex;
@@ -331,10 +334,7 @@ html, body {
     max-width: 580px;
 }
 
-.logo-wrapper {
-    position: relative;
-    display: inline-block;
-}
+.logo-wrapper { position: relative; display: inline-block; }
 
 .mc-title {
     font-family: 'Press Start 2P', monospace;
@@ -361,12 +361,7 @@ html, body {
     100% { transform: rotate(-12deg) scale(1.1); }
 }
 
-.menu-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 320px;
-}
+.menu-buttons { display: flex; flex-direction: column; gap: 12px; width: 320px; }
 
 .mc-btn {
     width: 100%;
@@ -384,11 +379,7 @@ html, body {
     transition: all 0.1s;
 }
 
-.mc-btn:hover {
-    background: #858585;
-    border-color: #38bdf8;
-    transform: scale(1.02);
-}
+.mc-btn:hover { background: #858585; border-color: #38bdf8; transform: scale(1.02); }
 
 .mc-btn.primary {
     background: #0284c7;
@@ -417,33 +408,31 @@ html, body {
 }
 
 /* Options & MP Window */
-.options-window, .mp-window {
-    min-width: 360px;
+.options-window, .mp-window { min-width: 400px; }
+.options-body { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+
+.option-row { display: flex; flex-direction: column; gap: 6px; font-size: 10px; color: #222; }
+.option-row input[type="range"] { width: 100%; cursor: pointer; }
+
+.mp-body { padding: 16px 8px; font-size: 10px; color: #222; }
+
+.mp-section { display: flex; flex-direction: column; gap: 6px; }
+
+.room-id-box, .join-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #8b8b8b;
+    border: 2px solid #373737;
+    padding: 6px 10px;
+    border-radius: 4px;
 }
 
-.options-body {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-top: 12px;
-}
-
-.option-row {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.mc-input {
+    background: #ffffff;
+    border: 2px solid #373737;
+    padding: 6px 8px;
+    font-family: 'Press Start 2P', monospace;
     font-size: 10px;
-    color: #222;
-}
-
-.option-row input[type="range"] {
-    width: 100%;
-    cursor: pointer;
-}
-
-.mp-body {
-    padding: 16px 8px;
-    font-size: 11px;
-    color: #222;
-    text-align: center;
+    flex: 1;
 }

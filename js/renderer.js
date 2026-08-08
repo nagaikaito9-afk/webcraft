@@ -1,4 +1,4 @@
-// High-Performance WebGL2 Shader & Voxel Mesh Renderer with Alpha Test & 10-Stage Cracks
+// High-Performance WebGL2 Shader & Voxel Mesh Renderer (Release 2.0.0 with Day/Night & Bugfixes)
 class WebGLRenderer {
     constructor(canvas) {
         this.canvas = canvas;
@@ -8,6 +8,7 @@ class WebGLRenderer {
             throw new Error('WebGL2 not supported');
         }
 
+        this.skyColor = [0.55, 0.72, 0.98]; // Daytime sky
         this.initGLState();
         this.initShaders();
         this.initOverlayShaders();
@@ -22,7 +23,7 @@ class WebGLRenderer {
         gl.cullFace(gl.BACK);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.clearColor(0.55, 0.72, 0.98, 1.0);
+        gl.clearColor(this.skyColor[0], this.skyColor[1], this.skyColor[2], 1.0);
     }
 
     createShader(gl, type, source) {
@@ -76,6 +77,7 @@ class WebGLRenderer {
 
         uniform sampler2D u_atlas;
         uniform vec3 u_cameraPos;
+        uniform vec3 u_skyColor;
 
         out vec4 fragColor;
 
@@ -122,6 +124,8 @@ class WebGLRenderer {
             else if (bType == 21) slot = 25.0;
             else if (bType == 22) slot = 26.0;
             else if (bType >= 23 && bType <= 28) slot = float(27 + (bType - 23));
+            else if (bType == 29) slot = 33.0; // Water
+            else if (bType == 30) slot = 34.0; // Lava
 
             float col = mod(slot, 16.0);
             float row = floor(slot / 16.0);
@@ -130,13 +134,24 @@ class WebGLRenderer {
             vec4 texColor = texture(u_atlas, atlasUV);
             if (texColor.a < 0.1) discard;
 
-            vec3 lightColor = texColor.rgb * v_light;
+            // Semi-transparent Water
+            if (bType == 29) {
+                texColor.a = 0.65;
+            }
 
+            // Lava Emissive Light
+            float lightMult = v_light;
+            if (bType == 30) {
+                lightMult = 1.3;
+            }
+
+            vec3 lightColor = texColor.rgb * lightMult;
+
+            // Day/Night Distance Fog
             float dist = length(v_fragPos - u_cameraPos);
             float fogFactor = clamp((dist - 40.0) / (110.0 - 40.0), 0.0, 0.85);
-            vec3 fogColor = vec3(0.55, 0.72, 0.98);
 
-            fragColor = vec4(mix(lightColor, fogColor, fogFactor), texColor.a);
+            fragColor = vec4(mix(lightColor, u_skyColor, fogFactor), texColor.a);
         }
         `;
 
@@ -158,7 +173,8 @@ class WebGLRenderer {
         this.uniforms = {
             viewProj: gl.getUniformLocation(this.program, 'u_viewProj'),
             atlas: gl.getUniformLocation(this.program, 'u_atlas'),
-            cameraPos: gl.getUniformLocation(this.program, 'u_cameraPos')
+            cameraPos: gl.getUniformLocation(this.program, 'u_cameraPos'),
+            skyColor: gl.getUniformLocation(this.program, 'u_skyColor')
         };
 
         this.vao = gl.createVertexArray();
@@ -181,11 +197,11 @@ class WebGLRenderer {
         precision mediump float;
         in vec2 v_uv;
         uniform sampler2D u_atlas;
-        uniform float u_crackStage; // -1 for wireframe, 0..9 for crack texture
+        uniform float u_crackStage; // -1 for wireframe, 0..9 for crack
         out vec4 fragColor;
         void main() {
             if (u_crackStage < 0.0) {
-                fragColor = vec4(0.0, 0.0, 0.0, 0.75); // Black wireframe
+                fragColor = vec4(0.0, 0.0, 0.0, 0.75); // Target Wireframe Box
             } else {
                 float slot = 48.0 + u_crackStage;
                 float col = mod(slot, 16.0);
@@ -267,6 +283,13 @@ class WebGLRenderer {
         gl.bindVertexArray(null);
     }
 
+    setSkyColor(r, g, b) {
+        this.skyColor = [r, g, b];
+        if (this.gl) {
+            this.gl.clearColor(r, g, b, 1.0);
+        }
+    }
+
     render(camera, targetBlock = null, miningProgress = 0.0) {
         const gl = this.gl;
         gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -282,6 +305,7 @@ class WebGLRenderer {
         gl.useProgram(this.program);
         gl.uniformMatrix4fv(this.uniforms.viewProj, false, viewProj);
         gl.uniform3fv(this.uniforms.cameraPos, camera.position);
+        gl.uniform3fv(this.uniforms.skyColor, this.skyColor);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.atlasTexture);
@@ -290,7 +314,7 @@ class WebGLRenderer {
         gl.bindVertexArray(this.vao);
         gl.drawArrays(gl.TRIANGLES, 0, this.vertexCount);
 
-        // Draw Target Wireframe & Crack Overlay
+        // Draw Target Box Wireframe & Crack Overlay
         if (targetBlock) {
             gl.useProgram(this.overlayProgram);
 
@@ -303,16 +327,16 @@ class WebGLRenderer {
             let wireframeViewProj = Mat4.multiply(viewProj, model);
             gl.uniformMatrix4fv(this.overlayUniforms.viewProj, false, wireframeViewProj);
 
-            // Draw Black Wireframe Line Box
+            // Line wireframe
             gl.uniform1f(this.overlayUniforms.crackStage, -1.0);
             gl.bindVertexArray(this.wireframeVao);
             gl.lineWidth(2.5);
             gl.drawArrays(gl.LINES, 0, 24);
 
-            // Draw Progressive Destruction Cracks Overlay if mining
+            // Progressive Destruction Cracks Overlay
             if (miningProgress > 0.0) {
                 let stage = Math.min(9, Math.floor(miningProgress * 10.0));
-                gl.uniform1f(this.overlayUniforms.crackStage, float(stage));
+                gl.uniform1f(this.overlayUniforms.crackStage, Number(stage)); // Fixed ReferenceError: float is not defined
                 gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, this.atlasTexture);
                 gl.uniform1i(this.overlayUniforms.atlas, 0);

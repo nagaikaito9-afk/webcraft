@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Webcraft Release 1.1: 3D Voxel Survival Game with Recipe Book Inventory, Title Menu, Cracks Animation, and Advanced Biomes in WebGL & C++ Wasm.">
-    <title>Webcraft - Release 1.1</title>
+    <meta name="description" content="Webcraft Release 2.0.0: Full 3D Voxel Survival Game with WebRTC P2P Multiplayer, Day-Night Cycle, Hand Item Swaying, One-Click Quick Crafting & Item Drag-Splitting in WebGL.">
+    <title>Webcraft - Release 2.0.0 (Multiplayer & Survival Engine)</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟩</text></svg>">
     <link rel="stylesheet" href="css/style.css">
+    
+    <!-- PeerJS WebRTC Library for Real-Time P2P Multiplayer -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -17,6 +20,9 @@
 
     <!-- Crosshair -->
     <div id="crosshair"></div>
+
+    <!-- First-Person Hand Item Display (Right Bottom Swaying Item) -->
+    <div id="heldItemHand"></div>
 
     <!-- F3 Debug HUD -->
     <header>
@@ -31,10 +37,8 @@
         <div class="gui-window flex-layout">
             <!-- Left Side: Recipe Book -->
             <div class="recipe-book-panel">
-                <div class="recipe-title">📖 RECIPES</div>
-                <div class="recipe-list" id="recipeBookList">
-                    <!-- Recipes generated dynamically -->
-                </div>
+                <div class="recipe-title">📖 RECIPES (CLICK TO CRAFT)</div>
+                <div class="recipe-list" id="recipeBookList"></div>
             </div>
 
             <!-- Right Side: Main Inventory & 2x2 Crafting -->
@@ -123,12 +127,12 @@
         <div class="title-menu-card">
             <div class="logo-wrapper">
                 <h1 class="mc-title">WEBCRAFT</h1>
-                <div class="splash-text">1.1 Release Update!</div>
+                <div class="splash-text">Release 2.0.0 Multiplayer Engine!</div>
             </div>
             
             <div class="menu-buttons">
                 <button id="btnSingleplayer" class="mc-btn primary">Singleplayer</button>
-                <button id="btnMultiplayer" class="mc-btn">Multiplayer</button>
+                <button id="btnMultiplayer" class="mc-btn">Multiplayer P2P</button>
                 <button id="btnOptions" class="mc-btn">Options...</button>
             </div>
 
@@ -136,8 +140,8 @@
                 <div><strong>WASD</strong> : Move</div>
                 <div><strong>SPACE</strong> : Jump</div>
                 <div><strong>SHIFT</strong> : Sneak</div>
-                <div><strong>E KEY</strong> : Inventory & Recipes</div>
-                <div><strong>LEFT HOLD</strong> : Mine Block (Cracks)</div>
+                <div><strong>E KEY</strong> : Inventory & Quick Craft</div>
+                <div><strong>LEFT DRAG</strong> : Split Item Stacks</div>
                 <div><strong>RIGHT CLICK</strong> : Place / Use Table</div>
                 <div><strong>1 - 9 / WHEEL</strong> : Hotbar Slot</div>
                 <div><strong>F3</strong> : Toggle Debug HUD</div>
@@ -165,15 +169,31 @@
         </div>
     </div>
 
-    <!-- Multiplayer Info Modal -->
+    <!-- Multiplayer Lobby Modal (WebRTC P2P) -->
     <div id="multiplayerModal" class="gui-modal" style="display: none;">
         <div class="gui-window mp-window">
             <div class="gui-header">
-                <h2>MULTIPLAYER</h2>
+                <h2>REAL-TIME P2P MULTIPLAYER</h2>
                 <button id="closeMpBtn" class="gui-close">✕</button>
             </div>
             <div class="mp-body">
-                <p>🌐 Multiplayer servers are coming soon in Webcraft 2.0!</p>
+                <div class="mp-section">
+                    <label>Your Room ID (Share with friends):</label>
+                    <div class="room-id-box">
+                        <span id="myRoomIdText">Initializing PeerJS...</span>
+                        <button id="btnCopyRoomId" class="gui-close" style="background:#0284c7;">Copy</button>
+                    </div>
+                </div>
+
+                <div class="mp-section" style="margin-top: 16px;">
+                    <label>Join Friend's Room ID:</label>
+                    <div class="join-box">
+                        <input type="text" id="joinRoomInput" placeholder="e.g. webcraft-1234" class="mc-input">
+                        <button id="btnJoinRoom" class="mc-btn primary" style="width: auto; padding: 6px 12px;">Connect</button>
+                    </div>
+                </div>
+
+                <div id="mpStatusText" style="margin-top: 14px; font-size: 10px; color: #4ade80;">Status: Ready</div>
             </div>
         </div>
     </div>
@@ -190,6 +210,7 @@
     <script src="js/crafting.js"></script>
     <script src="js/mining.js"></script>
     <script src="js/wasm_bridge.js"></script>
+    <script src="js/multiplayer.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

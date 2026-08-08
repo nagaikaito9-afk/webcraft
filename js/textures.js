@@ -1,8 +1,8 @@
-// Dynamic Pixel-Perfect Texture Atlas Generator for Webcraft 1.1 (30+ Blocks, Items & 10 Crack Stages)
+// Dynamic Pixel-Perfect Texture Atlas Generator for Webcraft 2.0 (30+ Blocks, Items, Water, Lava & 10 Crack Stages)
 const TextureGenerator = {
     TILE_SIZE: 16,
     ATLAS_COLS: 16,
-    ATLAS_ROWS: 5, // 16x5 = 80 Tile Slots (256x80 px Atlas)
+    ATLAS_ROWS: 5,
 
     // Block Texture Slot IDs
     TEX_GRASS_TOP: 0,
@@ -38,8 +38,9 @@ const TextureGenerator = {
     TEX_WOOL_GREEN: 30,
     TEX_WOOL_YELLOW: 31,
     TEX_WOOL_BLACK: 32,
+    TEX_WATER: 33,
+    TEX_LAVA: 34,
 
-    // Crack Stages Start at Slot 48 (48..57 for 10 stages)
     CRACK_START_SLOT: 48,
 
     generateAtlas() {
@@ -145,20 +146,14 @@ const TextureGenerator = {
         // 9: Sand
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let n = noise(x, y, 9.2);
-            let r = 220 + Math.floor(n * 25);
-            let g = 205 + Math.floor(n * 25);
-            let b = 150 + Math.floor(n * 20);
-            setPixel(9, x, y, r, g, b);
+            setPixel(9, x, y, 220 + Math.floor(n * 25), 205 + Math.floor(n * 25), 150 + Math.floor(n * 20));
         }
 
         // 10: Sandstone
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let isBorder = (y % 4 === 0);
             let n = noise(x, y, 10.1);
-            let r = isBorder ? 190 : 215 + Math.floor(n * 20);
-            let g = isBorder ? 175 : 195 + Math.floor(n * 20);
-            let b = isBorder ? 120 : 140 + Math.floor(n * 15);
-            setPixel(10, x, y, r, g, b);
+            setPixel(10, x, y, isBorder ? 190 : 215 + Math.floor(n * 20), isBorder ? 175 : 195 + Math.floor(n * 20), isBorder ? 120 : 140 + Math.floor(n * 15));
         }
 
         // 11: Glass
@@ -175,18 +170,15 @@ const TextureGenerator = {
                 let sn = noise(x, y, 4.1);
                 let v = 110 + Math.floor(sn * 50);
                 let on = noise(x, y, seed);
-                if (on > 0.68) {
-                    setPixel(slot, x, y, oreR, oreG, oreB);
-                } else {
-                    setPixel(slot, x, y, v, v, v);
-                }
+                if (on > 0.68) setPixel(slot, x, y, oreR, oreG, oreB);
+                else setPixel(slot, x, y, v, v, v);
             }
         };
 
-        drawOre(12, 30, 30, 30, 12.5);   // Coal
-        drawOre(13, 215, 165, 130, 13.5); // Iron
-        drawOre(14, 245, 215, 60, 14.5);  // Gold
-        drawOre(15, 60, 220, 240, 15.5);  // Diamond
+        drawOre(12, 30, 30, 30, 12.5);
+        drawOre(13, 215, 165, 130, 13.5);
+        drawOre(14, 245, 215, 60, 14.5);
+        drawOre(15, 60, 220, 240, 15.5);
 
         // 16: Obsidian
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
@@ -285,7 +277,7 @@ const TextureGenerator = {
             setPixel(26, x, y, isHole ? 160 : 220 + Math.floor(sn * 30), isHole ? 140 : 210 + Math.floor(sn * 25), isHole ? 30 : 60);
         }
 
-        // Wool colors (27-32)
+        // 27-32 Wools
         const woolColors = [
             [235, 235, 240], [210, 45, 45], [45, 80, 210], [45, 170, 50], [235, 210, 45], [25, 25, 30]
         ];
@@ -299,9 +291,20 @@ const TextureGenerator = {
             }
         });
 
-        // ----------------------------------------------------
-        // 10 Progressive Mining Crack Textures (Slots 48..57)
-        // ----------------------------------------------------
+        // 33: Water (Semi-transparent Blue)
+        for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
+            let n = noise(x, y, 33.1);
+            setPixel(33, x, y, 30 + Math.floor(n * 30), 80 + Math.floor(n * 50), 220 + Math.floor(n * 35), 180);
+        }
+
+        // 34: Lava (Glowing Orange-Red)
+        for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
+            let n = noise(x, y, 34.1);
+            let isHot = (n > 0.6);
+            setPixel(34, x, y, 245 + Math.floor(n * 10), isHot ? 200 : 90 + Math.floor(n * 40), 20 + Math.floor(n * 20));
+        }
+
+        // 48..57 Destruction Cracks (10 stages)
         for (let stage = 0; stage < 10; stage++) {
             let slot = this.CRACK_START_SLOT + stage;
             let density = (stage + 1) * 0.1;
@@ -317,7 +320,7 @@ const TextureGenerator = {
                                       (x % 4 === 0 && y % 3 === 0 && dist < stage * 1.2);
 
                     if (isCrackLine && n < density + 0.3) {
-                        setPixel(slot, x, y, 20, 20, 20, 220); // Dark black crack lines
+                        setPixel(slot, x, y, 20, 20, 20, 220);
                     }
                 }
             }

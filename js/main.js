@@ -1,9 +1,10 @@
-// Webcraft Release 1.1 - Main Controller with Home Screen, Recipe Book & Cracks
+// Webcraft Release 2.0.0 Main Controller (Multiplayer, Day/Night, Drag Split, Hand Sway & Quick Craft)
 document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('renderCanvas');
     const startOverlay = document.getElementById('startOverlay');
     const debugHud = document.getElementById('debugHud');
     const hotbarContainer = document.getElementById('hotbarContainer');
+    const heldItemHand = document.getElementById('heldItemHand');
 
     const inventoryModal = document.getElementById('inventoryModal');
     const workbenchModal = document.getElementById('workbenchModal');
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cursorItemEl = document.getElementById('cursorItem');
     const recipeBookListEl = document.getElementById('recipeBookList');
 
-    // Instantiate Core Engines
+    // Instantiate Core Systems
     const worldBridge = new WorldBridge();
     await worldBridge.init(Math.floor(Math.random() * 10000));
 
@@ -32,9 +33,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     let isMouseDown = false;
     let targetRaycast = null;
 
+    // Day/Night Cycle State
+    let dayTime = 0.2; // 0.0 = Noon, 0.5 = Sunset, 0.75 = Night
+    const DAY_SPEED = 0.005; // Time speed
+
     // Initial Mesh Generation
     let meshData = worldBridge.buildMesh();
     renderer.updateMeshBuffer(meshData);
+
+    // --------------------------------------------------
+    // Real-Time WebRTC Multiplayer Setup
+    // --------------------------------------------------
+    const mpStatusText = document.getElementById('mpStatusText');
+    const myRoomIdText = document.getElementById('myRoomIdText');
+
+    const mpManager = new MultiplayerManager(worldBridge, (status, data) => {
+        if (status === 'ready') {
+            myRoomIdText.innerText = data;
+            mpStatusText.innerText = 'Status: Server Ready. Room ID created!';
+        } else if (status === 'connected') {
+            mpStatusText.innerText = `Status: Player Connected (${data})`;
+        } else if (status === 'disconnected') {
+            mpStatusText.innerText = `Status: Player Left (${data})`;
+        } else if (status === 'error') {
+            mpStatusText.innerText = `Error: ${data}`;
+        }
+    });
+    mpManager.init();
+
+    mpManager.onBlockUpdateCallback = (x, y, z, type) => {
+        meshData = worldBridge.buildMesh();
+        renderer.updateMeshBuffer(meshData);
+    };
+
+    document.getElementById('btnCopyRoomId').addEventListener('click', () => {
+        if (mpManager.myPeerId) {
+            navigator.clipboard.writeText(mpManager.myPeerId);
+            alert('Room ID copied to clipboard: ' + mpManager.myPeerId);
+        }
+    });
+
+    document.getElementById('btnJoinRoom').addEventListener('click', () => {
+        let roomId = document.getElementById('joinRoomInput').value.trim();
+        if (roomId) {
+            mpManager.joinRoom(roomId);
+            mpStatusText.innerText = 'Connecting to ' + roomId + '...';
+        }
+    });
 
     // --------------------------------------------------
     // Title Menu & Home Screen Event Listeners
@@ -77,7 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // --------------------------------------------------
-    // Hotbar & GUI Render Helpers
+    // Hotbar & 1st Person Hand Sway Renderer
     // --------------------------------------------------
     function renderHotbar() {
         hotbarContainer.innerHTML = '';
@@ -112,9 +157,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             slotEl.addEventListener('click', () => {
                 selectedHotbarIndex = i;
                 renderHotbar();
+                updateHeldHandItem();
             });
 
             hotbarContainer.appendChild(slotEl);
+        }
+
+        updateHeldHandItem();
+    }
+
+    function updateHeldHandItem() {
+        let held = inventory.slots[selectedHotbarIndex];
+        if (held && held.id) {
+            heldItemHand.style.display = 'block';
+            let slotIdx = getAtlasSlotIndex(held.id);
+            let col = slotIdx % 16;
+            let row = Math.floor(slotIdx / 16);
+            heldItemHand.innerHTML = `
+                <div class="hand-icon" style="background-image: url(${textureAtlas.toDataURL()}); background-position: -${col * 96}px -${row * 96}px; background-size: ${16 * 96}px ${5 * 96}px;"></div>
+            `;
+        } else {
+            heldItemHand.style.display = 'none';
         }
     }
 
@@ -142,13 +205,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (id === 21) return 25; // TNT
         if (id === 22) return 26; // Sponge
         if (id >= 23 && id <= 28) return 27 + (id - 23); // Wools
+        if (id === 29) return 33; // Water
+        if (id === 30) return 34; // Lava
         return 8;
     }
 
     renderHotbar();
 
     // --------------------------------------------------
-    // Recipe Book Panel Setup
+    // Recipe Book One-Click Quick Crafting
     // --------------------------------------------------
     function renderRecipeBook() {
         recipeBookListEl.innerHTML = '';
@@ -173,30 +238,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             itemEl.appendChild(nameEl);
 
             itemEl.addEventListener('click', () => {
-                applyRecipeToGrid(rec);
+                let success = crafting.quickCraftRecipe(rec.id);
+                if (success) {
+                    refreshGUI();
+                } else {
+                    console.log('Not enough ingredients for ' + rec.name);
+                }
             });
 
             recipeBookListEl.appendChild(itemEl);
         });
     }
 
-    function applyRecipeToGrid(recipe) {
-        // Auto fill 2x2 grid if ingredients available
-        let isWbOpen = workbenchModal.style.display !== 'none';
-        let targetGrid = isWbOpen ? inventory.craftingGrid : inventory.craftingGrid.slice(0, 4);
-
-        if (recipe.id === 7) { // Planks
-            // Need 1 log (5)
-            if (inventory.addItem(7, 4)) {
-                // Quick craft shortcut
-            }
-        }
-        refreshGUI();
-    }
-
     // --------------------------------------------------
-    // Inventory GUI & Drag-Drop Handling
+    // Inventory GUI & Drag-Splitting Handling
     // --------------------------------------------------
+    let isMouseDraggingGUI = false;
+
     function setupGUIGrids(mainGridEl, hotbarGridEl) {
         mainGridEl.innerHTML = '';
         hotbarGridEl.innerHTML = '';
@@ -234,13 +292,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        slotEl.addEventListener('click', (e) => {
-            handleSlotClick(slotIndex, e.button === 2);
+        slotEl.addEventListener('mousedown', (e) => {
+            isMouseDraggingGUI = true;
+            if (inventory.cursorItem) {
+                inventory.isDragSplitting = true;
+                inventory.dragSplitPass(slotIndex);
+            } else {
+                handleSlotClick(slotIndex, e.button === 2);
+            }
             refreshGUI();
+        });
+
+        slotEl.addEventListener('mouseenter', () => {
+            if (isMouseDraggingGUI && inventory.cursorItem) {
+                inventory.dragSplitPass(slotIndex);
+                refreshGUI();
+            }
         });
 
         return slotEl;
     }
+
+    document.addEventListener('mouseup', () => {
+        isMouseDraggingGUI = false;
+        inventory.endDragSplit();
+    });
 
     function handleSlotClick(slotIndex, isRightClick) {
         let slotItem = inventory.slots[slotIndex];
@@ -347,7 +423,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Modal Control
     function toggleInventoryModal(open = true) {
         if (open) {
             document.exitPointerLock();
@@ -367,7 +442,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Input States
     const keys = { forward: false, backward: false, left: false, right: false, jump: false, sneak: false };
 
-    // Pointer Lock & Overlay Handler
     document.addEventListener('pointerlockchange', () => {
         if (document.pointerLockElement === canvas) {
             isPointerLocked = true;
@@ -413,6 +487,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     meshData = worldBridge.buildMesh();
                     renderer.updateMeshBuffer(meshData);
                     renderHotbar();
+
+                    mpManager.sendBlockUpdate(p[0], p[1], p[2], heldSlot.id);
                 }
             }
         }
@@ -479,8 +555,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.sneak = false;
     });
 
-    // Game Loop
+    // --------------------------------------------------
+    // Main Game Loop (with Day/Night Cycle & MP Transform Sync)
+    // --------------------------------------------------
     let lastTime = performance.now();
+    let mpSyncTimer = 0;
 
     function gameLoop(now) {
         let dt = (now - lastTime) / 1000.0;
@@ -488,8 +567,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (isPointerLocked) {
             physics.update(camera, keys, dt);
+
+            // Hand Swaying animation when moving
+            let isMoving = keys.forward || keys.backward || keys.left || keys.right;
+            if (isMoving) {
+                let swayX = Math.sin(now * 0.01) * 8;
+                let swayY = Math.cos(now * 0.02) * 6;
+                heldItemHand.style.transform = `translate(${swayX}px, ${swayY}px)`;
+            } else {
+                heldItemHand.style.transform = `translate(0px, 0px)`;
+            }
+
+            // MP Transform Broadcast (every 100ms)
+            mpSyncTimer += dt;
+            if (mpSyncTimer >= 0.1) {
+                mpSyncTimer = 0;
+                mpManager.sendTransform(camera.position, camera.yaw, camera.pitch, selectedHotbarIndex);
+            }
         }
 
+        // Day/Night Cycle Calculation
+        dayTime = (dayTime + dt * DAY_SPEED) % 1.0;
+        let skyR = 0.55, skyG = 0.72, skyB = 0.98;
+        if (dayTime > 0.45 && dayTime <= 0.55) { // Sunset
+            let factor = (dayTime - 0.45) / 0.1;
+            skyR = 0.55 + factor * 0.35;
+            skyG = 0.72 - factor * 0.30;
+            skyB = 0.98 - factor * 0.75;
+        } else if (dayTime > 0.55 && dayTime <= 0.85) { // Night
+            skyR = 0.05; skyG = 0.08; skyB = 0.18;
+        } else if (dayTime > 0.85 && dayTime <= 0.95) { // Sunrise
+            let factor = (dayTime - 0.85) / 0.1;
+            skyR = 0.05 + factor * 0.50;
+            skyG = 0.08 + factor * 0.64;
+            skyB = 0.18 + factor * 0.80;
+        }
+        renderer.setSkyColor(skyR, skyG, skyB);
+
+        // Target Raycast & Mining
         targetRaycast = physics.raycast(camera.position, camera.front);
 
         if (isPointerLocked && isMouseDown && targetRaycast) {
@@ -505,19 +620,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 meshData = worldBridge.buildMesh();
                 renderer.updateMeshBuffer(meshData);
+
+                mpManager.sendBlockUpdate(targetRaycast.hit[0], targetRaycast.hit[1], targetRaycast.hit[2], 0);
             }
         } else {
             mining.resetMining();
         }
 
-        // Render Frame with Progressive Cracks Overlay
+        // Render Frame with Mining Cracks
         renderer.render(camera, targetRaycast ? targetRaycast.hit : null, mining.miningProgress);
 
         let pos = camera.position;
         debugHud.innerHTML = `
-            <div><strong>Webcraft 1.1 Release Update</strong></div>
+            <div><strong>Webcraft 2.0.0 (P2P Multiplayer & Survival Engine)</strong></div>
             <div>XYZ: ${pos[0].toFixed(2)} / ${pos[1].toFixed(2)} / ${pos[2].toFixed(2)}</div>
-            <div>Engine: ${worldBridge.isWasmLoaded ? 'C++ WebAssembly' : 'JS Voxel Engine'}</div>
+            <div>Time of Day: ${(dayTime * 24).toFixed(1)}h</div>
+            <div>Multiplayer: ${mpManager.myPeerId ? 'Peer Ready (' + Object.keys(mpManager.connections).length + ' Peer Connected)' : 'Offline'}</div>
             <div>Polygons: ${(renderer.vertexCount / 3).toLocaleString()} Triangles</div>
         `;
 
