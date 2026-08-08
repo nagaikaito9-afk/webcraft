@@ -1,10 +1,9 @@
-// WebAssembly Bridge with High-Performance JS Fallback Engine (128x64x128 & Biomes)
+// WebAssembly Bridge with High-Performance JS Fallback Engine (128x64x128 & Natural Biomes)
 class WorldBridge {
     constructor() {
         this.isWasmLoaded = false;
         this.wasmInstance = null;
 
-        // Expanded Map Size
         this.WORLD_SIZE_X = 128;
         this.WORLD_SIZE_Y = 64;
         this.WORLD_SIZE_Z = 128;
@@ -21,18 +20,28 @@ class WorldBridge {
 
                 this.wasmInitWorld(seed);
                 this.isWasmLoaded = true;
-                console.log('%c[Webcraft 1.0] C++ WebAssembly Engine initialized!', 'color: #00ff88; font-weight: bold;');
+                console.log('%c[Webcraft 1.1] C++ WebAssembly Engine initialized!', 'color: #00ff88; font-weight: bold;');
                 return;
             } catch (e) {
-                console.warn('[Webcraft 1.0] Wasm load failed, switching to JS Voxel Engine.', e);
+                console.warn('[Webcraft 1.1] Wasm load failed, switching to JS Voxel Engine.', e);
             }
         }
 
-        console.log('%c[Webcraft 1.0] Running High-Performance JS Fallback Voxel Engine (128x64x128)', 'color: #3b82f6; font-weight: bold;');
+        console.log('%c[Webcraft 1.1] Running High-Performance JS Fallback Voxel Engine (128x64x128)', 'color: #3b82f6; font-weight: bold;');
         this.generateJSTerrain(seed);
     }
 
     generateJSTree(cx, cy, cz) {
+        // Distance check to avoid tree clustering
+        for (let dx = -3; dx <= 3; dx++) {
+            for (let dz = -3; dz <= 3; dz++) {
+                for (let dy = 0; dy <= 6; dy++) {
+                    let b = this.getBlock(cx + dx, cy + dy, cz + dz);
+                    if (b === 5 || b === 6) return;
+                }
+            }
+        }
+
         let trunkH = 4 + Math.floor(Math.random() * 2);
         for (let y = 0; y < trunkH; y++) {
             this.setBlock(cx, cy + y, cz, 5); // Oak Log
@@ -77,7 +86,7 @@ class WorldBridge {
                     } else if (y > surfaceY - 4) {
                         this.blocks[idx] = isDesert ? 9 : 2; // Sandstone or Dirt
                     } else {
-                        // Ores
+                        // Ores & Stone ONLY (no wood under desert)
                         let o1 = noise(x + y, z + y, 8.0);
                         let o2 = noise(x - y, z - y, 6.0);
                         if (y < 12 && o1 > 0.8) this.blocks[idx] = 14;      // Diamond Ore
@@ -88,9 +97,9 @@ class WorldBridge {
                     }
                 }
 
-                // Trees on Grassland
-                if (!isDesert && surfaceY > 20 && x > 4 && x < this.WORLD_SIZE_X - 4 && z > 4 && z < this.WORLD_SIZE_Z - 4) {
-                    if (noise(x * 2, z * 2, 1.0) > 0.82 && this.getBlock(x, surfaceY, z) === 1) {
+                // Natural trees ONLY on Grassland
+                if (!isDesert && surfaceY > 20 && x > 6 && x < this.WORLD_SIZE_X - 6 && z > 6 && z < this.WORLD_SIZE_Z - 6) {
+                    if (noise(x * 2, z * 2, 1.0) > 0.84 && this.getBlock(x, surfaceY, z) === 1) {
                         this.generateJSTree(x, surfaceY + 1, z);
                     }
                 }
@@ -146,12 +155,12 @@ class WorldBridge {
         const addFace = (x, y, z, nx, ny, nz, u1, v1, u2, v2, blockType, light, faceIdx) => {
             let p = [[0,0,0], [0,0,0], [0,0,0], [0,0,0]];
             switch (faceIdx) {
-                case 0: p = [[x,y,z+1], [x+1,y,z+1], [x+1,y+1,z+1], [x,y+1,z+1]]; break; // +Z
-                case 1: p = [[x+1,y,z], [x,y,z], [x,y+1,z], [x+1,y+1,z]]; break;         // -Z
-                case 2: p = [[x,y+1,z+1], [x+1,y+1,z+1], [x+1,y+1,z], [x,y+1,z]]; break; // +Y
-                case 3: p = [[x,y,z], [x+1,y,z], [x+1,y,z+1], [x,y,z+1]]; break;         // -Y
-                case 4: p = [[x+1,y,z+1], [x+1,y,z], [x+1,y+1,z], [x+1,y+1,z+1]]; break; // +X
-                case 5: p = [[x,y,z], [x,y,z+1], [x,y+1,z+1], [x,y+1,z]]; break;         // -X
+                case 0: p = [[x,y,z+1], [x+1,y,z+1], [x+1,y+1,z+1], [x,y+1,z+1]]; break;
+                case 1: p = [[x+1,y,z], [x,y,z], [x,y+1,z], [x+1,y+1,z]]; break;
+                case 2: p = [[x,y+1,z+1], [x+1,y+1,z+1], [x+1,y+1,z], [x,y+1,z]]; break;
+                case 3: p = [[x,y,z], [x+1,y,z], [x+1,y,z+1], [x,y,z+1]]; break;
+                case 4: p = [[x+1,y,z+1], [x+1,y,z], [x+1,y+1,z], [x+1,y+1,z+1]]; break;
+                case 5: p = [[x,y,z], [x,y,z+1], [x,y+1,z+1], [x,y+1,z]]; break;
             }
 
             const indices = [0, 1, 2, 0, 2, 3];

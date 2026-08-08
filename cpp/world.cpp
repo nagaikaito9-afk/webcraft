@@ -29,6 +29,18 @@ bool World::isTransparent(uint8_t type) const {
 }
 
 void World::generateTree(int cx, int cy, int cz) {
+    // Check if another tree is too close (distance check)
+    for (int dx = -3; dx <= 3; dx++) {
+        for (int dz = -3; dz <= 3; dz++) {
+            for (int dy = 0; dy <= 6; dy++) {
+                uint8_t existing = getBlock(cx + dx, cy + dy, cz + dz);
+                if (existing == BLOCK_OAK_LOG || existing == BLOCK_OAK_LEAVES) {
+                    return; // Cancel tree generation if another tree is nearby
+                }
+            }
+        }
+    }
+
     int trunkHeight = 4 + (rand() % 2);
     for (int y = 0; y < trunkHeight; y++) {
         setBlock(cx, cy + y, cz, BLOCK_OAK_LOG);
@@ -53,9 +65,9 @@ void World::generateTerrain() {
             double nx = (double)x / 45.0;
             double nz = (double)z / 45.0;
             
-            // Biome noise: > 0.35 Desert, else Grass/Forest
+            // Biome noise: > 0.35 Desert, else Grassland/Forest
             double biomeVal = noiseGen.octaveNoise(nx * 0.4, 0.2, nz * 0.4, 2, 0.5);
-            bool isDesert = biomeVal > 0.25;
+            bool isDesert = biomeVal > 0.28;
 
             double elevation = noiseGen.octaveNoise(nx, 0.5, nz, 4, 0.5);
             int surfaceY = 22 + (int)(elevation * 18);
@@ -70,7 +82,7 @@ void World::generateTerrain() {
                 } else if (y > surfaceY - 4) {
                     setBlock(x, y, z, isDesert ? BLOCK_SANDSTONE : BLOCK_DIRT);
                 } else {
-                    // Underground Ores Generation
+                    // Underground Stone & Ores ONLY
                     double oreNoise1 = noiseGen.noise(x * 0.15, y * 0.15, z * 0.15);
                     double oreNoise2 = noiseGen.noise(x * 0.2, y * 0.2, z * 0.2);
 
@@ -88,10 +100,10 @@ void World::generateTerrain() {
                 }
             }
 
-            // Tree population on Grassland
-            if (!isDesert && surfaceY > 20 && x > 4 && x < WORLD_SIZE_X - 4 && z > 4 && z < WORLD_SIZE_Z - 4) {
-                double treeChance = noiseGen.noise(x * 0.8, 1.0, z * 0.8);
-                if (treeChance > 0.78 && getBlock(x, surfaceY, z) == BLOCK_GRASS) {
+            // Natural tree population ONLY on Grassland
+            if (!isDesert && surfaceY > 20 && x > 6 && x < WORLD_SIZE_X - 6 && z > 6 && z < WORLD_SIZE_Z - 6) {
+                double treeChance = noiseGen.noise(x * 0.5, 1.0, z * 0.5);
+                if (treeChance > 0.82 && getBlock(x, surfaceY, z) == BLOCK_GRASS) {
                     generateTree(x, surfaceY + 1, z);
                 }
             }

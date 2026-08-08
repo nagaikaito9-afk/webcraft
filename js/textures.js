@@ -1,8 +1,8 @@
-// Dynamic Pixel-Perfect Texture Atlas Generator for Webcraft 1.0 (30+ Blocks & Items)
+// Dynamic Pixel-Perfect Texture Atlas Generator for Webcraft 1.1 (30+ Blocks, Items & 10 Crack Stages)
 const TextureGenerator = {
     TILE_SIZE: 16,
     ATLAS_COLS: 16,
-    ATLAS_ROWS: 4, // 16x4 = 64 Tile Slots (256x64 px Atlas)
+    ATLAS_ROWS: 5, // 16x5 = 80 Tile Slots (256x80 px Atlas)
 
     // Block Texture Slot IDs
     TEX_GRASS_TOP: 0,
@@ -38,6 +38,9 @@ const TextureGenerator = {
     TEX_WOOL_GREEN: 30,
     TEX_WOOL_YELLOW: 31,
     TEX_WOOL_BLACK: 32,
+
+    // Crack Stages Start at Slot 48 (48..57 for 10 stages)
+    CRACK_START_SLOT: 48,
 
     generateAtlas() {
         const canvas = document.createElement('canvas');
@@ -164,10 +167,9 @@ const TextureGenerator = {
             let isStreak = (x + y === 8 || x + y === 9);
             if (isFrame) setPixel(11, x, y, 220, 240, 255, 200);
             else if (isStreak) setPixel(11, x, y, 255, 255, 255, 160);
-            else setPixel(11, x, y, 200, 230, 255, 45); // Semi-transparent glass
+            else setPixel(11, x, y, 200, 230, 255, 45);
         }
 
-        // Helper for Ore rendering over stone
         const drawOre = (slot, oreR, oreG, oreB, seed) => {
             for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
                 let sn = noise(x, y, 4.1);
@@ -181,22 +183,15 @@ const TextureGenerator = {
             }
         };
 
-        // 12: Coal Ore
-        drawOre(12, 30, 30, 30, 12.5);
-        // 13: Iron Ore
-        drawOre(13, 215, 165, 130, 13.5);
-        // 14: Gold Ore
-        drawOre(14, 245, 215, 60, 14.5);
-        // 15: Diamond Ore
-        drawOre(15, 60, 220, 240, 15.5);
+        drawOre(12, 30, 30, 30, 12.5);   // Coal
+        drawOre(13, 215, 165, 130, 13.5); // Iron
+        drawOre(14, 245, 215, 60, 14.5);  // Gold
+        drawOre(15, 60, 220, 240, 15.5);  // Diamond
 
         // 16: Obsidian
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let n = noise(x, y, 16.2);
-            let r = 25 + Math.floor(n * 25);
-            let g = 15 + Math.floor(n * 20);
-            let b = 45 + Math.floor(n * 40);
-            setPixel(16, x, y, r, g, b);
+            setPixel(16, x, y, 25 + Math.floor(n * 25), 15 + Math.floor(n * 20), 45 + Math.floor(n * 40));
         }
 
         // 17: Bricks
@@ -205,24 +200,18 @@ const TextureGenerator = {
             let offset = (row % 2 === 0) ? 0 : 4;
             let isMortar = (y % 4 === 0) || ((x + offset) % 8 === 0);
             let n = noise(x, y, 17.1);
-            if (isMortar) {
-                setPixel(17, x, y, 180, 180, 185);
-            } else {
-                setPixel(17, x, y, 160 + Math.floor(n * 40), 60 + Math.floor(n * 20), 50 + Math.floor(n * 20));
-            }
+            if (isMortar) setPixel(17, x, y, 180, 180, 185);
+            else setPixel(17, x, y, 160 + Math.floor(n * 40), 60 + Math.floor(n * 20), 50 + Math.floor(n * 20));
         }
 
         // 18: Bookshelf Side
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let isFrame = (y < 2 || y > 13 || x < 2 || x > 13);
             let n = noise(x, y, 18.2);
-            if (isFrame) {
-                setPixel(18, x, y, 150 + Math.floor(n * 20), 100 + Math.floor(n * 15), 50 + Math.floor(n * 10));
-            } else {
+            if (isFrame) setPixel(18, x, y, 150 + Math.floor(n * 20), 100 + Math.floor(n * 15), 50 + Math.floor(n * 10));
+            else {
                 let bookIdx = Math.floor(x / 3);
-                let colors = [
-                    [180, 40, 40], [40, 120, 180], [40, 160, 60], [200, 160, 40], [140, 50, 160]
-                ];
+                let colors = [[180, 40, 40], [40, 120, 180], [40, 160, 60], [200, 160, 40], [140, 50, 160]];
                 let c = colors[bookIdx % colors.length];
                 setPixel(18, x, y, c[0], c[1], c[2]);
             }
@@ -233,9 +222,8 @@ const TextureGenerator = {
             let isBorder = (x % 4 === 0) || (y % 4 === 0) || ((x + y) % 5 === 0);
             let n = noise(x, y, 5.7);
             let mn = noise(x, y, 19.3);
-            if (mn > 0.6) {
-                setPixel(19, x, y, 50 + Math.floor(mn * 40), 130 + Math.floor(mn * 50), 40 + Math.floor(mn * 20));
-            } else {
+            if (mn > 0.6) setPixel(19, x, y, 50 + Math.floor(mn * 40), 130 + Math.floor(mn * 50), 40 + Math.floor(mn * 20));
+            else {
                 let v = isBorder ? 60 + Math.floor(n * 30) : 130 + Math.floor(n * 50);
                 setPixel(19, x, y, v, v, v);
             }
@@ -245,32 +233,23 @@ const TextureGenerator = {
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let isGrid = (x === 0 || x === 15 || y === 0 || y === 15 || x === 7 || y === 7);
             let n = noise(x, y, 20.1);
-            if (isGrid) {
-                setPixel(20, x, y, 90, 55, 25);
-            } else {
-                setPixel(20, x, y, 180 + Math.floor(n * 25), 130 + Math.floor(n * 20), 75 + Math.floor(n * 15));
-            }
+            if (isGrid) setPixel(20, x, y, 90, 55, 25);
+            else setPixel(20, x, y, 180 + Math.floor(n * 25), 130 + Math.floor(n * 20), 75 + Math.floor(n * 15));
         }
 
         // 21: Crafting Table Side
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let isLine = (y % 4 === 0) || (x % 8 === 0 && (y % 8 < 4));
             let n = noise(x, y, 8.1);
-            let r = isLine ? 100 : 170 + Math.floor(n * 30);
-            let g = isLine ? 65 : 120 + Math.floor(n * 25);
-            let b = isLine ? 35 : 65 + Math.floor(n * 15);
-            setPixel(21, x, y, r, g, b);
+            setPixel(21, x, y, isLine ? 100 : 170 + Math.floor(n * 30), isLine ? 65 : 120 + Math.floor(n * 25), isLine ? 35 : 65 + Math.floor(n * 15));
         }
 
         // 22: Crafting Table Front
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let isSaw = (x >= 4 && x <= 11 && y >= 4 && y <= 11);
             let n = noise(x, y, 22.1);
-            if (isSaw) {
-                setPixel(22, x, y, 200, 200, 210);
-            } else {
-                setPixel(22, x, y, 150 + Math.floor(n * 25), 100 + Math.floor(n * 20), 50 + Math.floor(n * 15));
-            }
+            if (isSaw) setPixel(22, x, y, 200, 200, 210);
+            else setPixel(22, x, y, 150 + Math.floor(n * 25), 100 + Math.floor(n * 20), 50 + Math.floor(n * 15));
         }
 
         // 23: Chest Top
@@ -295,11 +274,8 @@ const TextureGenerator = {
         for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
             let isStripe = (y >= 5 && y <= 10);
             let n = noise(x, y, 25.1);
-            if (isStripe) {
-                setPixel(25, x, y, 240, 240, 245);
-            } else {
-                setPixel(25, x, y, 210 + Math.floor(n * 30), 40 + Math.floor(n * 20), 30 + Math.floor(n * 20));
-            }
+            if (isStripe) setPixel(25, x, y, 240, 240, 245);
+            else setPixel(25, x, y, 210 + Math.floor(n * 30), 40 + Math.floor(n * 20), 30 + Math.floor(n * 20));
         }
 
         // 26: Sponge
@@ -309,25 +285,43 @@ const TextureGenerator = {
             setPixel(26, x, y, isHole ? 160 : 220 + Math.floor(sn * 30), isHole ? 140 : 210 + Math.floor(sn * 25), isHole ? 30 : 60);
         }
 
-        // Wool colors helper (27-32)
+        // Wool colors (27-32)
         const woolColors = [
-            [235, 235, 240], // White (27)
-            [210, 45, 45],   // Red (28)
-            [45, 80, 210],   // Blue (29)
-            [45, 170, 50],   // Green (30)
-            [235, 210, 45],  // Yellow (31)
-            [25, 25, 30]     // Black (32)
+            [235, 235, 240], [210, 45, 45], [45, 80, 210], [45, 170, 50], [235, 210, 45], [25, 25, 30]
         ];
         woolColors.forEach((c, idx) => {
             let slot = 27 + idx;
             for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) {
                 let n = noise(x, y, 27.0 + idx);
-                let r = Math.max(0, Math.min(255, c[0] - 20 + Math.floor(n * 30)));
-                let g = Math.max(0, Math.min(255, c[1] - 20 + Math.floor(n * 30)));
-                let b = Math.max(0, Math.min(255, c[2] - 20 + Math.floor(n * 30)));
-                setPixel(slot, x, y, r, g, b);
+                setPixel(slot, x, y, Math.max(0, Math.min(255, c[0] - 20 + Math.floor(n * 30))),
+                                      Math.max(0, Math.min(255, c[1] - 20 + Math.floor(n * 30))),
+                                      Math.max(0, Math.min(255, c[2] - 20 + Math.floor(n * 30))));
             }
         });
+
+        // ----------------------------------------------------
+        // 10 Progressive Mining Crack Textures (Slots 48..57)
+        // ----------------------------------------------------
+        for (let stage = 0; stage < 10; stage++) {
+            let slot = this.CRACK_START_SLOT + stage;
+            let density = (stage + 1) * 0.1;
+            for (let x = 0; x < 16; x++) {
+                for (let y = 0; y < 16; y++) {
+                    let dx = Math.abs(x - 7.5);
+                    let dy = Math.abs(y - 7.5);
+                    let dist = Math.hypot(dx, dy);
+                    let n = noise(x, y, 48.0 + stage);
+
+                    let isCrackLine = (Math.abs(x - y) <= stage / 3) ||
+                                      (Math.abs(x + y - 15) <= stage / 3) ||
+                                      (x % 4 === 0 && y % 3 === 0 && dist < stage * 1.2);
+
+                    if (isCrackLine && n < density + 0.3) {
+                        setPixel(slot, x, y, 20, 20, 20, 220); // Dark black crack lines
+                    }
+                }
+            }
+        }
 
         return canvas;
     }

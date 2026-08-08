@@ -1,4 +1,4 @@
-// High-Performance WebGL2 Shader & Voxel Mesh Renderer with Alpha Test & Destruction Cracks
+// High-Performance WebGL2 Shader & Voxel Mesh Renderer with Alpha Test & 10-Stage Cracks
 class WebGLRenderer {
     constructor(canvas) {
         this.canvas = canvas;
@@ -22,7 +22,7 @@ class WebGLRenderer {
         gl.cullFace(gl.BACK);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.clearColor(0.55, 0.72, 0.98, 1.0); // Classic Blue Sky
+        gl.clearColor(0.55, 0.72, 0.98, 1.0);
     }
 
     createShader(gl, type, source) {
@@ -83,57 +83,55 @@ class WebGLRenderer {
             int bType = int(v_block_type + 0.5);
             float slot = 0.0;
 
-            // Map 30+ Block Types to Texture Atlas Slots (16 cols x 4 rows atlas = 64 slots)
             if (bType == 1) { // Grass
-                if (v_normal.y > 0.5) slot = 0.0;      // Top Grass
-                else if (v_normal.y < -0.5) slot = 2.0; // Bottom Dirt
-                else slot = 1.0;                        // Side Grass
-            } else if (bType == 2)  slot = 2.0;  // Dirt
-            else if (bType == 3)  slot = 3.0;  // Stone
-            else if (bType == 4)  slot = 4.0;  // Cobblestone
-            else if (bType == 5) {             // Oak Log
+                if (v_normal.y > 0.5) slot = 0.0;
+                else if (v_normal.y < -0.5) slot = 2.0;
+                else slot = 1.0;
+            } else if (bType == 2)  slot = 2.0;
+            else if (bType == 3)  slot = 3.0;
+            else if (bType == 4)  slot = 4.0;
+            else if (bType == 5) {
                 if (v_normal.y > 0.5 || v_normal.y < -0.5) slot = 6.0;
                 else slot = 5.0;
             }
-            else if (bType == 6)  slot = 7.0;  // Leaves
-            else if (bType == 7)  slot = 8.0;  // Oak Planks
-            else if (bType == 8)  slot = 9.0;  // Sand
-            else if (bType == 9)  slot = 10.0; // Sandstone
-            else if (bType == 10) slot = 11.0; // Glass
-            else if (bType == 11) slot = 12.0; // Coal Ore
-            else if (bType == 12) slot = 13.0; // Iron Ore
-            else if (bType == 13) slot = 14.0; // Gold Ore
-            else if (bType == 14) slot = 15.0; // Diamond Ore
-            else if (bType == 15) slot = 16.0; // Obsidian
-            else if (bType == 16) slot = 17.0; // Bricks
-            else if (bType == 17) {            // Bookshelf
+            else if (bType == 6)  slot = 7.0;
+            else if (bType == 7)  slot = 8.0;
+            else if (bType == 8)  slot = 9.0;
+            else if (bType == 9)  slot = 10.0;
+            else if (bType == 10) slot = 11.0;
+            else if (bType == 11) slot = 12.0;
+            else if (bType == 12) slot = 13.0;
+            else if (bType == 13) slot = 14.0;
+            else if (bType == 14) slot = 15.0;
+            else if (bType == 15) slot = 16.0;
+            else if (bType == 16) slot = 17.0;
+            else if (bType == 17) {
                 if (v_normal.y > 0.5 || v_normal.y < -0.5) slot = 8.0;
                 else slot = 18.0;
             }
-            else if (bType == 18) slot = 19.0; // Mossy Cobble
-            else if (bType == 19) {            // Crafting Table
+            else if (bType == 18) slot = 19.0;
+            else if (bType == 19) {
                 if (v_normal.y > 0.5) slot = 20.0;
-                else if (v_normal.z > 0.5) slot = 22.0; // Front
-                else slot = 21.0; // Side
+                else if (v_normal.z > 0.5) slot = 22.0;
+                else slot = 21.0;
             }
-            else if (bType == 20) {            // Chest
+            else if (bType == 20) {
                 if (v_normal.y > 0.5 || v_normal.y < -0.5) slot = 23.0;
                 else slot = 24.0;
             }
-            else if (bType == 21) slot = 25.0; // TNT
-            else if (bType == 22) slot = 26.0; // Sponge
-            else if (bType >= 23 && bType <= 28) slot = float(27 + (bType - 23)); // Wools
+            else if (bType == 21) slot = 25.0;
+            else if (bType == 22) slot = 26.0;
+            else if (bType >= 23 && bType <= 28) slot = float(27 + (bType - 23));
 
             float col = mod(slot, 16.0);
             float row = floor(slot / 16.0);
-            vec2 atlasUV = vec2((col + v_uv.x) / 16.0, (row + v_uv.y) / 4.0);
+            vec2 atlasUV = vec2((col + v_uv.x) / 16.0, (row + v_uv.y) / 5.0);
 
             vec4 texColor = texture(u_atlas, atlasUV);
-            if (texColor.a < 0.1) discard; // Alpha Cutout for leaves/glass gaps
+            if (texColor.a < 0.1) discard;
 
             vec3 lightColor = texColor.rgb * v_light;
 
-            // Distance Fog
             float dist = length(v_fragPos - u_cameraPos);
             float fogFactor = clamp((dist - 40.0) / (110.0 - 40.0), 0.0, 0.85);
             vec3 fogColor = vec3(0.55, 0.72, 0.98);
@@ -171,53 +169,60 @@ class WebGLRenderer {
         const gl = this.gl;
         const vsSource = `#version 300 es
         in vec3 a_position;
+        in vec2 a_uv;
         uniform mat4 u_viewProj;
+        out vec2 v_uv;
         void main() {
+            v_uv = a_uv;
             gl_Position = u_viewProj * vec4(a_position, 1.0);
         }`;
 
         const fsSource = `#version 300 es
         precision mediump float;
-        uniform float u_progress;
+        in vec2 v_uv;
+        uniform sampler2D u_atlas;
+        uniform float u_crackStage; // -1 for wireframe, 0..9 for crack texture
         out vec4 fragColor;
         void main() {
-            // Target Selection Box or Crack Fill
-            if (u_progress > 0.0) {
-                // Crack pattern simulation
-                fragColor = vec4(0.0, 0.0, 0.0, u_progress * 0.7);
+            if (u_crackStage < 0.0) {
+                fragColor = vec4(0.0, 0.0, 0.0, 0.75); // Black wireframe
             } else {
-                fragColor = vec4(0.0, 0.0, 0.0, 0.75); // Target Wireframe
+                float slot = 48.0 + u_crackStage;
+                float col = mod(slot, 16.0);
+                float row = floor(slot / 16.0);
+                vec2 atlasUV = vec2((col + v_uv.x) / 16.0, (row + v_uv.y) / 5.0);
+                vec4 texColor = texture(u_atlas, atlasUV);
+                if (texColor.a < 0.1) discard;
+                fragColor = vec4(texColor.rgb, texColor.a * 0.85);
             }
         }`;
 
         const vs = this.createShader(gl, gl.VERTEX_SHADER, vsSource);
         const fs = this.createShader(gl, gl.FRAGMENT_SHADER, fsSource);
-        this.wireframeProgram = gl.createProgram();
-        gl.attachShader(this.wireframeProgram, vs);
-        gl.attachShader(this.wireframeProgram, fs);
-        gl.linkProgram(this.wireframeProgram);
+        this.overlayProgram = gl.createProgram();
+        gl.attachShader(this.overlayProgram, vs);
+        gl.attachShader(this.overlayProgram, fs);
+        gl.linkProgram(this.overlayProgram);
 
-        this.wireframeUniforms = {
-            viewProj: gl.getUniformLocation(this.wireframeProgram, 'u_viewProj'),
-            progress: gl.getUniformLocation(this.wireframeProgram, 'u_progress')
+        this.overlayUniforms = {
+            viewProj: gl.getUniformLocation(this.overlayProgram, 'u_viewProj'),
+            atlas: gl.getUniformLocation(this.overlayProgram, 'u_atlas'),
+            crackStage: gl.getUniformLocation(this.overlayProgram, 'u_crackStage')
         };
 
         this.wireframeVao = gl.createVertexArray();
         this.wireframeVbo = gl.createBuffer();
 
         const cubeLines = new Float32Array([
-            // Bottom
             0,0,0, 1,0,0,  1,0,0, 1,0,1,  1,0,1, 0,0,1,  0,0,1, 0,0,0,
-            // Top
             0,1,0, 1,1,0,  1,1,0, 1,1,1,  1,1,1, 0,1,1,  0,1,1, 0,1,0,
-            // Verticals
             0,0,0, 0,1,0,  1,0,0, 1,1,0,  1,0,1, 1,1,1,  0,0,1, 0,1,1
         ]);
 
         gl.bindVertexArray(this.wireframeVao);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.wireframeVbo);
         gl.bufferData(gl.ARRAY_BUFFER, cubeLines, gl.STATIC_DRAW);
-        const posLoc = gl.getAttribLocation(this.wireframeProgram, 'a_position');
+        const posLoc = gl.getAttribLocation(this.overlayProgram, 'a_position');
         gl.enableVertexAttribArray(posLoc);
         gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
         gl.bindVertexArray(null);
@@ -285,9 +290,9 @@ class WebGLRenderer {
         gl.bindVertexArray(this.vao);
         gl.drawArrays(gl.TRIANGLES, 0, this.vertexCount);
 
-        // Draw Target Wireframe & Mining Overlay
+        // Draw Target Wireframe & Crack Overlay
         if (targetBlock) {
-            gl.useProgram(this.wireframeProgram);
+            gl.useProgram(this.overlayProgram);
 
             let model = Mat4.identity();
             model[12] = targetBlock[0] - 0.002;
@@ -296,12 +301,22 @@ class WebGLRenderer {
             model[0] = 1.004; model[5] = 1.004; model[10] = 1.004;
 
             let wireframeViewProj = Mat4.multiply(viewProj, model);
-            gl.uniformMatrix4fv(this.wireframeUniforms.viewProj, false, wireframeViewProj);
-            gl.uniform1f(this.wireframeUniforms.progress, miningProgress);
+            gl.uniformMatrix4fv(this.overlayUniforms.viewProj, false, wireframeViewProj);
 
+            // Draw Black Wireframe Line Box
+            gl.uniform1f(this.overlayUniforms.crackStage, -1.0);
             gl.bindVertexArray(this.wireframeVao);
             gl.lineWidth(2.5);
             gl.drawArrays(gl.LINES, 0, 24);
+
+            // Draw Progressive Destruction Cracks Overlay if mining
+            if (miningProgress > 0.0) {
+                let stage = Math.min(9, Math.floor(miningProgress * 10.0));
+                gl.uniform1f(this.overlayUniforms.crackStage, float(stage));
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, this.atlasTexture);
+                gl.uniform1i(this.overlayUniforms.atlas, 0);
+            }
         }
 
         gl.bindVertexArray(null);

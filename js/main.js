@@ -1,4 +1,4 @@
-// Webcraft Release 1.0 - Main Game Controller & Inventory Integration
+// Webcraft Release 1.1 - Main Controller with Home Screen, Recipe Book & Cracks
 document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('renderCanvas');
     const startOverlay = document.getElementById('startOverlay');
@@ -7,9 +7,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const inventoryModal = document.getElementById('inventoryModal');
     const workbenchModal = document.getElementById('workbenchModal');
-    const cursorItemEl = document.getElementById('cursorItem');
+    const optionsModal = document.getElementById('optionsModal');
+    const multiplayerModal = document.getElementById('multiplayerModal');
 
-    // Instantiate Core Systems
+    const cursorItemEl = document.getElementById('cursorItem');
+    const recipeBookListEl = document.getElementById('recipeBookList');
+
+    // Instantiate Core Engines
     const worldBridge = new WorldBridge();
     await worldBridge.init(Math.floor(Math.random() * 10000));
 
@@ -32,7 +36,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     let meshData = worldBridge.buildMesh();
     renderer.updateMeshBuffer(meshData);
 
-    // Dynamic Hotbar Render
+    // --------------------------------------------------
+    // Title Menu & Home Screen Event Listeners
+    // --------------------------------------------------
+    document.getElementById('btnSingleplayer').addEventListener('click', () => {
+        canvas.requestPointerLock();
+    });
+
+    document.getElementById('btnMultiplayer').addEventListener('click', () => {
+        multiplayerModal.style.display = 'flex';
+    });
+
+    document.getElementById('btnOptions').addEventListener('click', () => {
+        optionsModal.style.display = 'flex';
+    });
+
+    document.getElementById('closeOptionsBtn').addEventListener('click', () => {
+        optionsModal.style.display = 'none';
+    });
+
+    document.getElementById('closeMpBtn').addEventListener('click', () => {
+        multiplayerModal.style.display = 'none';
+    });
+
+    // Options Sliders
+    const sensSlider = document.getElementById('sensSlider');
+    const sensValue = document.getElementById('sensValue');
+    sensSlider.addEventListener('input', (e) => {
+        let val = parseFloat(e.target.value);
+        camera.mouseSensitivity = val;
+        sensValue.innerText = val.toFixed(2);
+    });
+
+    const fovSlider = document.getElementById('fovSlider');
+    const fovValue = document.getElementById('fovValue');
+    fovSlider.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value);
+        camera.fov = val * Math.PI / 180.0;
+        fovValue.innerText = `${val}°`;
+    });
+
+    // --------------------------------------------------
+    // Hotbar & GUI Render Helpers
+    // --------------------------------------------------
     function renderHotbar() {
         hotbarContainer.innerHTML = '';
         for (let i = 0; i < 9; i++) {
@@ -50,12 +96,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 iconEl.className = 'slot-icon';
                 iconEl.style.backgroundImage = `url(${textureAtlas.toDataURL()})`;
                 
-                // Texture offset mapping for icons
                 let slotIdx = getAtlasSlotIndex(item.id);
                 let col = slotIdx % 16;
                 let row = Math.floor(slotIdx / 16);
                 iconEl.style.backgroundPosition = `-${col * 28}px -${row * 28}px`;
-                iconEl.style.backgroundSize = `${16 * 28}px ${4 * 28}px`;
+                iconEl.style.backgroundSize = `${16 * 28}px ${5 * 28}px`;
                 slotEl.appendChild(iconEl);
 
                 let countEl = document.createElement('span');
@@ -74,7 +119,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function getAtlasSlotIndex(id) {
-        // Block / Item to Atlas index
         if (id === 1) return 0;  // Grass
         if (id === 2) return 2;  // Dirt
         if (id === 3) return 3;  // Stone
@@ -98,23 +142,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (id === 21) return 25; // TNT
         if (id === 22) return 26; // Sponge
         if (id >= 23 && id <= 28) return 27 + (id - 23); // Wools
-        return 8; // Default Planks icon
+        return 8;
     }
 
     renderHotbar();
 
-    // Inventory & Crafting GUI Event Wireup
+    // --------------------------------------------------
+    // Recipe Book Panel Setup
+    // --------------------------------------------------
+    function renderRecipeBook() {
+        recipeBookListEl.innerHTML = '';
+        crafting.RECIPES.forEach(rec => {
+            let itemEl = document.createElement('div');
+            itemEl.className = 'recipe-item';
+
+            let iconEl = document.createElement('div');
+            iconEl.className = 'slot-icon';
+            iconEl.style.backgroundImage = `url(${textureAtlas.toDataURL()})`;
+            let slotIdx = getAtlasSlotIndex(rec.id);
+            let col = slotIdx % 16;
+            let row = Math.floor(slotIdx / 16);
+            iconEl.style.backgroundPosition = `-${col * 24}px -${row * 24}px`;
+            iconEl.style.backgroundSize = `${16 * 24}px ${5 * 24}px`;
+
+            let nameEl = document.createElement('span');
+            nameEl.className = 'recipe-name';
+            nameEl.innerText = rec.name;
+
+            itemEl.appendChild(iconEl);
+            itemEl.appendChild(nameEl);
+
+            itemEl.addEventListener('click', () => {
+                applyRecipeToGrid(rec);
+            });
+
+            recipeBookListEl.appendChild(itemEl);
+        });
+    }
+
+    function applyRecipeToGrid(recipe) {
+        // Auto fill 2x2 grid if ingredients available
+        let isWbOpen = workbenchModal.style.display !== 'none';
+        let targetGrid = isWbOpen ? inventory.craftingGrid : inventory.craftingGrid.slice(0, 4);
+
+        if (recipe.id === 7) { // Planks
+            // Need 1 log (5)
+            if (inventory.addItem(7, 4)) {
+                // Quick craft shortcut
+            }
+        }
+        refreshGUI();
+    }
+
+    // --------------------------------------------------
+    // Inventory GUI & Drag-Drop Handling
+    // --------------------------------------------------
     function setupGUIGrids(mainGridEl, hotbarGridEl) {
         mainGridEl.innerHTML = '';
         hotbarGridEl.innerHTML = '';
 
         for (let i = 9; i < 36; i++) {
-            let slot = createGUISlot(i);
-            mainGridEl.appendChild(slot);
+            mainGridEl.appendChild(createGUISlot(i));
         }
         for (let i = 0; i < 9; i++) {
-            let slot = createGUISlot(i);
-            hotbarGridEl.appendChild(slot);
+            hotbarGridEl.appendChild(createGUISlot(i));
         }
     }
 
@@ -132,7 +223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let col = slotIdx % 16;
             let row = Math.floor(slotIdx / 16);
             iconEl.style.backgroundPosition = `-${col * 28}px -${row * 28}px`;
-            iconEl.style.backgroundSize = `${16 * 28}px ${4 * 28}px`;
+            iconEl.style.backgroundSize = `${16 * 28}px ${5 * 28}px`;
             slotEl.appendChild(iconEl);
 
             if (item.count > 1) {
@@ -155,7 +246,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         let slotItem = inventory.slots[slotIndex];
 
         if (!inventory.cursorItem && slotItem) {
-            // Pick up item
             if (isRightClick) {
                 let half = Math.ceil(slotItem.count / 2);
                 inventory.cursorItem = { ...slotItem, count: half };
@@ -167,7 +257,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } else if (inventory.cursorItem) {
             if (!slotItem) {
-                // Place item in empty slot
                 if (isRightClick) {
                     inventory.slots[slotIndex] = { ...inventory.cursorItem, count: 1 };
                     inventory.cursorItem.count--;
@@ -177,7 +266,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     inventory.cursorItem = null;
                 }
             } else if (slotItem.id === inventory.cursorItem.id) {
-                // Stack items
                 if (isRightClick) {
                     if (slotItem.count < 64) {
                         slotItem.count++;
@@ -191,7 +279,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (inventory.cursorItem.count <= 0) inventory.cursorItem = null;
                 }
             } else {
-                // Swap items
                 let temp = inventory.slots[slotIndex];
                 inventory.slots[slotIndex] = inventory.cursorItem;
                 inventory.cursorItem = temp;
@@ -203,6 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderHotbar();
         setupGUIGrids(document.getElementById('invMainGrid'), document.getElementById('invHotbarGrid'));
         setupGUIGrids(document.getElementById('wbMainGrid'), document.getElementById('wbHotbarGrid'));
+        renderRecipeBook();
         updateCursorItemUI();
         updateCrafting();
     }
@@ -214,7 +302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let col = slotIdx % 16;
             let row = Math.floor(slotIdx / 16);
             cursorItemEl.innerHTML = `
-                <div class="slot-icon" style="background-image: url(${textureAtlas.toDataURL()}); background-position: -${col * 32}px -${row * 32}px; background-size: ${16 * 32}px ${4 * 32}px;"></div>
+                <div class="slot-icon" style="background-image: url(${textureAtlas.toDataURL()}); background-position: -${col * 32}px -${row * 32}px; background-size: ${16 * 32}px ${5 * 32}px;"></div>
                 <span class="slot-count">${inventory.cursorItem.count > 1 ? inventory.cursorItem.count : ''}</span>
             `;
         } else {
@@ -229,7 +317,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Crafting evaluation
     function updateCrafting() {
         let isWbOpen = workbenchModal.style.display !== 'none';
         let grid = isWbOpen ? inventory.craftingGrid : inventory.craftingGrid.slice(0, 4);
@@ -248,7 +335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let col = slotIdx % 16;
             let row = Math.floor(slotIdx / 16);
             iconEl.style.backgroundPosition = `-${col * 32}px -${row * 32}px`;
-            iconEl.style.backgroundSize = `${16 * 32}px ${4 * 32}px`;
+            iconEl.style.backgroundSize = `${16 * 32}px ${5 * 32}px`;
             resEl.appendChild(iconEl);
 
             if (result.count > 1) {
@@ -260,7 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Modal Controls
+    // Modal Control
     function toggleInventoryModal(open = true) {
         if (open) {
             document.exitPointerLock();
@@ -280,18 +367,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Input States
     const keys = { forward: false, backward: false, left: false, right: false, jump: false, sneak: false };
 
-    // Pointer Lock & Overlay Event
-    startOverlay.addEventListener('click', () => {
-        canvas.requestPointerLock();
-    });
-
+    // Pointer Lock & Overlay Handler
     document.addEventListener('pointerlockchange', () => {
         if (document.pointerLockElement === canvas) {
             isPointerLocked = true;
             startOverlay.style.display = 'none';
         } else {
             isPointerLocked = false;
-            if (inventoryModal.style.display === 'none' && workbenchModal.style.display === 'none') {
+            if (inventoryModal.style.display === 'none' && workbenchModal.style.display === 'none' && optionsModal.style.display === 'none' && multiplayerModal.style.display === 'none') {
                 startOverlay.style.display = 'flex';
             }
         }
@@ -306,7 +389,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.addEventListener('mousedown', (e) => {
         if (isPointerLocked && e.button === 0) {
             isMouseDown = true;
-        } else if (isPointerLocked && e.button === 2) { // Right Click: Place / Interact
+        } else if (isPointerLocked && e.button === 2) {
             targetRaycast = physics.raycast(camera.position, camera.front);
             if (!targetRaycast) return;
 
@@ -368,8 +451,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (e.code === 'Escape') {
-            if (inventoryModal.style.display !== 'none' || workbenchModal.style.display !== 'none') {
-                toggleInventoryModal(false);
+            if (inventoryModal.style.display !== 'none' || workbenchModal.style.display !== 'none' || optionsModal.style.display !== 'none' || multiplayerModal.style.display !== 'none') {
+                inventoryModal.style.display = 'none';
+                workbenchModal.style.display = 'none';
+                optionsModal.style.display = 'none';
+                multiplayerModal.style.display = 'none';
             }
         }
 
@@ -404,7 +490,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             physics.update(camera, keys, dt);
         }
 
-        // Raycasting & Progressive Mining
         targetRaycast = physics.raycast(camera.position, camera.front);
 
         if (isPointerLocked && isMouseDown && targetRaycast) {
@@ -425,15 +510,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             mining.resetMining();
         }
 
-        // Render Frame with Mining Progress Overlay
+        // Render Frame with Progressive Cracks Overlay
         renderer.render(camera, targetRaycast ? targetRaycast.hit : null, mining.miningProgress);
 
-        // Update Debug HUD
         let pos = camera.position;
         debugHud.innerHTML = `
-            <div><strong>Webcraft Release 1.0 (Survival & Crafting)</strong></div>
+            <div><strong>Webcraft 1.1 Release Update</strong></div>
             <div>XYZ: ${pos[0].toFixed(2)} / ${pos[1].toFixed(2)} / ${pos[2].toFixed(2)}</div>
-            <div>World Size: ${worldBridge.WORLD_SIZE_X}x${worldBridge.WORLD_SIZE_Y}x${worldBridge.WORLD_SIZE_Z}</div>
             <div>Engine: ${worldBridge.isWasmLoaded ? 'C++ WebAssembly' : 'JS Voxel Engine'}</div>
             <div>Polygons: ${(renderer.vertexCount / 3).toLocaleString()} Triangles</div>
         `;

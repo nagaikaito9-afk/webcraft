@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Webcraft Release 1.0: Full 3D Voxel Survival Game with 30+ Blocks, 2x2/3x3 Crafting, Inventory System, Progressive Mining, and Biomes in WebGL & C++ Wasm.">
-    <title>Webcraft - Release 1.0 (Survival & Crafting Update)</title>
+    <meta name="description" content="Webcraft Release 1.1: 3D Voxel Survival Game with Recipe Book Inventory, Title Menu, Cracks Animation, and Advanced Biomes in WebGL & C++ Wasm.">
+    <title>Webcraft - Release 1.1</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟩</text></svg>">
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -24,47 +24,52 @@
     </header>
 
     <!-- Hotbar Container (9 Slots) -->
-    <section id="hotbarContainer" aria-label="Inventory Hotbar">
-        <!-- 9 slots rendered dynamically by JS -->
-    </section>
+    <section id="hotbarContainer" aria-label="Inventory Hotbar"></section>
 
-    <!-- Full Inventory GUI (E Key Modal) -->
+    <!-- Full Inventory GUI with Left Recipe Book (E Key Modal) -->
     <div id="inventoryModal" class="gui-modal" style="display: none;">
-        <div class="gui-window">
-            <div class="gui-header">
-                <h2>INVENTORY & CRAFTING</h2>
-                <button id="closeInventoryBtn" class="gui-close">✕</button>
+        <div class="gui-window flex-layout">
+            <!-- Left Side: Recipe Book -->
+            <div class="recipe-book-panel">
+                <div class="recipe-title">📖 RECIPES</div>
+                <div class="recipe-list" id="recipeBookList">
+                    <!-- Recipes generated dynamically -->
+                </div>
             </div>
-            
-            <div class="gui-body">
-                <!-- 2x2 Crafting Area -->
-                <div class="crafting-2x2-section">
-                    <div class="section-label">Crafting (2x2)</div>
-                    <div class="crafting-flex">
-                        <div class="craft-grid grid-2x2" id="craftGrid2x2">
-                            <div class="gui-slot craft-slot" data-index="0"></div>
-                            <div class="gui-slot craft-slot" data-index="1"></div>
-                            <div class="gui-slot craft-slot" data-index="2"></div>
-                            <div class="gui-slot craft-slot" data-index="3"></div>
+
+            <!-- Right Side: Main Inventory & 2x2 Crafting -->
+            <div class="main-inv-panel">
+                <div class="gui-header">
+                    <h2>INVENTORY & CRAFTING</h2>
+                    <button id="closeInventoryBtn" class="gui-close">✕</button>
+                </div>
+                
+                <div class="gui-body">
+                    <!-- 2x2 Crafting Area -->
+                    <div class="crafting-2x2-section">
+                        <div class="section-label">Crafting (2x2)</div>
+                        <div class="crafting-flex">
+                            <div class="craft-grid grid-2x2" id="craftGrid2x2">
+                                <div class="gui-slot craft-slot" data-index="0"></div>
+                                <div class="gui-slot craft-slot" data-index="1"></div>
+                                <div class="gui-slot craft-slot" data-index="2"></div>
+                                <div class="gui-slot craft-slot" data-index="3"></div>
+                            </div>
+                            <div class="craft-arrow">➔</div>
+                            <div class="gui-slot result-slot" id="craftResult2x2"></div>
                         </div>
-                        <div class="craft-arrow">➔</div>
-                        <div class="gui-slot result-slot" id="craftResult2x2"></div>
                     </div>
-                </div>
 
-                <!-- 27 Main Inventory Slots -->
-                <div class="inventory-section">
-                    <div class="section-label">Inventory</div>
-                    <div class="inv-grid grid-main" id="invMainGrid">
-                        <!-- 27 slots -->
+                    <!-- 27 Main Inventory Slots -->
+                    <div class="inventory-section">
+                        <div class="section-label">Inventory</div>
+                        <div class="inv-grid grid-main" id="invMainGrid"></div>
                     </div>
-                </div>
 
-                <!-- 9 Hotbar Slots in Inventory -->
-                <div class="hotbar-section">
-                    <div class="section-label">Hotbar</div>
-                    <div class="inv-grid grid-hotbar" id="invHotbarGrid">
-                        <!-- 9 slots -->
+                    <!-- 9 Hotbar Slots -->
+                    <div class="hotbar-section">
+                        <div class="section-label">Hotbar</div>
+                        <div class="inv-grid grid-hotbar" id="invHotbarGrid"></div>
                     </div>
                 </div>
             </div>
@@ -80,7 +85,6 @@
             </div>
             
             <div class="gui-body">
-                <!-- 3x3 Crafting Area -->
                 <div class="crafting-3x3-section">
                     <div class="crafting-flex">
                         <div class="craft-grid grid-3x3" id="craftGrid3x3">
@@ -99,7 +103,6 @@
                     </div>
                 </div>
 
-                <!-- Main & Hotbar Grid inside Workbench -->
                 <div class="inventory-section">
                     <div class="section-label">Inventory</div>
                     <div class="inv-grid grid-main" id="wbMainGrid"></div>
@@ -115,23 +118,62 @@
     <!-- Floating Cursor Item during Drag & Drop -->
     <div id="cursorItem" style="display: none;"></div>
 
-    <!-- Start & Pointer Lock Overlay -->
+    <!-- Minecraft Style Home / Title Screen -->
     <div id="startOverlay">
-        <div class="start-card">
-            <h1 class="game-title">WEBCRAFT</h1>
-            <p class="game-subtitle">Release 1.0 (Survival Update)</p>
+        <div class="title-menu-card">
+            <div class="logo-wrapper">
+                <h1 class="mc-title">WEBCRAFT</h1>
+                <div class="splash-text">1.1 Release Update!</div>
+            </div>
             
-            <div class="start-btn">CLICK TO PLAY</div>
+            <div class="menu-buttons">
+                <button id="btnSingleplayer" class="mc-btn primary">Singleplayer</button>
+                <button id="btnMultiplayer" class="mc-btn">Multiplayer</button>
+                <button id="btnOptions" class="mc-btn">Options...</button>
+            </div>
 
             <div class="controls-guide">
                 <div><strong>WASD</strong> : Move</div>
                 <div><strong>SPACE</strong> : Jump</div>
                 <div><strong>SHIFT</strong> : Sneak</div>
-                <div><strong>E KEY</strong> : Inventory & Crafting</div>
-                <div><strong>LEFT HOLD</strong> : Mine Block</div>
+                <div><strong>E KEY</strong> : Inventory & Recipes</div>
+                <div><strong>LEFT HOLD</strong> : Mine Block (Cracks)</div>
                 <div><strong>RIGHT CLICK</strong> : Place / Use Table</div>
                 <div><strong>1 - 9 / WHEEL</strong> : Hotbar Slot</div>
                 <div><strong>F3</strong> : Toggle Debug HUD</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Options Modal -->
+    <div id="optionsModal" class="gui-modal" style="display: none;">
+        <div class="gui-window options-window">
+            <div class="gui-header">
+                <h2>OPTIONS</h2>
+                <button id="closeOptionsBtn" class="gui-close">✕</button>
+            </div>
+            <div class="options-body">
+                <div class="option-row">
+                    <label>Mouse Sensitivity: <span id="sensValue">0.12</span></label>
+                    <input type="range" id="sensSlider" min="0.05" max="0.30" step="0.01" value="0.12">
+                </div>
+                <div class="option-row">
+                    <label>Field of View (FOV): <span id="fovValue">70°</span></label>
+                    <input type="range" id="fovSlider" min="50" max="110" step="1" value="70">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multiplayer Info Modal -->
+    <div id="multiplayerModal" class="gui-modal" style="display: none;">
+        <div class="gui-window mp-window">
+            <div class="gui-header">
+                <h2>MULTIPLAYER</h2>
+                <button id="closeMpBtn" class="gui-close">✕</button>
+            </div>
+            <div class="mp-body">
+                <p>🌐 Multiplayer servers are coming soon in Webcraft 2.0!</p>
             </div>
         </div>
     </div>
