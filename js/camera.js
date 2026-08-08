@@ -1,7 +1,7 @@
 // First Person Camera with Mouse Lock and Matrix Math
 class Camera {
     constructor() {
-        this.position = [32.0, 35.0, 32.0];
+        this.position = [64.0, 38.0, 64.0];
         this.yaw = -90.0;   // Degrees
         this.pitch = 0.0;   // Degrees
         

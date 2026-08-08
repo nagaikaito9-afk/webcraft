@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Webcraft: C++, WebGL, and JavaScript 3D Voxel Engine inspired by Notch's original Minecraft Cave Game (Pre-Classic). Playable directly in browser.">
-    <title>Webcraft - Minecraft Cave Game Phase</title>
+    <meta name="description" content="Webcraft Release 1.0: Full 3D Voxel Survival Game with 30+ Blocks, 2x2/3x3 Crafting, Inventory System, Progressive Mining, and Biomes in WebGL & C++ Wasm.">
+    <title>Webcraft - Release 1.0 (Survival & Crafting Update)</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟩</text></svg>">
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -23,39 +23,103 @@
         <div id="debugHud"></div>
     </header>
 
-    <!-- Inventory Hotbar -->
+    <!-- Hotbar Container (9 Slots) -->
     <section id="hotbarContainer" aria-label="Inventory Hotbar">
-        <div class="hotbar-slot active" id="slot-0" title="Grass Block">
-            <span class="slot-key">1</span>
-            <div class="block-preview preview-grass"></div>
-        </div>
-        <div class="hotbar-slot" id="slot-1" title="Dirt Block">
-            <span class="slot-key">2</span>
-            <div class="block-preview preview-dirt"></div>
-        </div>
-        <div class="hotbar-slot" id="slot-2" title="Stone Block">
-            <span class="slot-key">3</span>
-            <div class="block-preview preview-stone"></div>
-        </div>
-        <div class="hotbar-slot" id="slot-3" title="Cobblestone Block">
-            <span class="slot-key">4</span>
-            <div class="block-preview preview-cobble"></div>
-        </div>
-        <div class="hotbar-slot" id="slot-4" title="Planks Block">
-            <span class="slot-key">5</span>
-            <div class="block-preview preview-planks"></div>
-        </div>
-        <div class="hotbar-slot" id="slot-5" title="Bricks Block">
-            <span class="slot-key">6</span>
-            <div class="block-preview preview-bricks"></div>
-        </div>
+        <!-- 9 slots rendered dynamically by JS -->
     </section>
+
+    <!-- Full Inventory GUI (E Key Modal) -->
+    <div id="inventoryModal" class="gui-modal" style="display: none;">
+        <div class="gui-window">
+            <div class="gui-header">
+                <h2>INVENTORY & CRAFTING</h2>
+                <button id="closeInventoryBtn" class="gui-close">✕</button>
+            </div>
+            
+            <div class="gui-body">
+                <!-- 2x2 Crafting Area -->
+                <div class="crafting-2x2-section">
+                    <div class="section-label">Crafting (2x2)</div>
+                    <div class="crafting-flex">
+                        <div class="craft-grid grid-2x2" id="craftGrid2x2">
+                            <div class="gui-slot craft-slot" data-index="0"></div>
+                            <div class="gui-slot craft-slot" data-index="1"></div>
+                            <div class="gui-slot craft-slot" data-index="2"></div>
+                            <div class="gui-slot craft-slot" data-index="3"></div>
+                        </div>
+                        <div class="craft-arrow">➔</div>
+                        <div class="gui-slot result-slot" id="craftResult2x2"></div>
+                    </div>
+                </div>
+
+                <!-- 27 Main Inventory Slots -->
+                <div class="inventory-section">
+                    <div class="section-label">Inventory</div>
+                    <div class="inv-grid grid-main" id="invMainGrid">
+                        <!-- 27 slots -->
+                    </div>
+                </div>
+
+                <!-- 9 Hotbar Slots in Inventory -->
+                <div class="hotbar-section">
+                    <div class="section-label">Hotbar</div>
+                    <div class="inv-grid grid-hotbar" id="invHotbarGrid">
+                        <!-- 9 slots -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crafting Table GUI (3x3 Modal) -->
+    <div id="workbenchModal" class="gui-modal" style="display: none;">
+        <div class="gui-window workbench-window">
+            <div class="gui-header">
+                <h2>CRAFTING TABLE</h2>
+                <button id="closeWorkbenchBtn" class="gui-close">✕</button>
+            </div>
+            
+            <div class="gui-body">
+                <!-- 3x3 Crafting Area -->
+                <div class="crafting-3x3-section">
+                    <div class="crafting-flex">
+                        <div class="craft-grid grid-3x3" id="craftGrid3x3">
+                            <div class="gui-slot wb-slot" data-index="0"></div>
+                            <div class="gui-slot wb-slot" data-index="1"></div>
+                            <div class="gui-slot wb-slot" data-index="2"></div>
+                            <div class="gui-slot wb-slot" data-index="3"></div>
+                            <div class="gui-slot wb-slot" data-index="4"></div>
+                            <div class="gui-slot wb-slot" data-index="5"></div>
+                            <div class="gui-slot wb-slot" data-index="6"></div>
+                            <div class="gui-slot wb-slot" data-index="7"></div>
+                            <div class="gui-slot wb-slot" data-index="8"></div>
+                        </div>
+                        <div class="craft-arrow">➔</div>
+                        <div class="gui-slot result-slot" id="craftResult3x3"></div>
+                    </div>
+                </div>
+
+                <!-- Main & Hotbar Grid inside Workbench -->
+                <div class="inventory-section">
+                    <div class="section-label">Inventory</div>
+                    <div class="inv-grid grid-main" id="wbMainGrid"></div>
+                </div>
+                <div class="hotbar-section">
+                    <div class="section-label">Hotbar</div>
+                    <div class="inv-grid grid-hotbar" id="wbHotbarGrid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Cursor Item during Drag & Drop -->
+    <div id="cursorItem" style="display: none;"></div>
 
     <!-- Start & Pointer Lock Overlay -->
     <div id="startOverlay">
         <div class="start-card">
             <h1 class="game-title">WEBCRAFT</h1>
-            <p class="game-subtitle">Cave Game Phase (0.1.0)</p>
+            <p class="game-subtitle">Release 1.0 (Survival Update)</p>
             
             <div class="start-btn">CLICK TO PLAY</div>
 
@@ -63,11 +127,11 @@
                 <div><strong>WASD</strong> : Move</div>
                 <div><strong>SPACE</strong> : Jump</div>
                 <div><strong>SHIFT</strong> : Sneak</div>
-                <div><strong>LEFT CLICK</strong> : Mine Block</div>
-                <div><strong>RIGHT CLICK</strong> : Place Block</div>
-                <div><strong>1 - 6 / WHEEL</strong> : Hotbar</div>
-                <div><strong>F3</strong> : Debug HUD</div>
-                <div><strong>ESC</strong> : Release Mouse</div>
+                <div><strong>E KEY</strong> : Inventory & Crafting</div>
+                <div><strong>LEFT HOLD</strong> : Mine Block</div>
+                <div><strong>RIGHT CLICK</strong> : Place / Use Table</div>
+                <div><strong>1 - 9 / WHEEL</strong> : Hotbar Slot</div>
+                <div><strong>F3</strong> : Toggle Debug HUD</div>
             </div>
         </div>
     </div>
@@ -80,6 +144,9 @@
     <script src="js/camera.js"></script>
     <script src="js/physics.js"></script>
     <script src="js/renderer.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/crafting.js"></script>
+    <script src="js/mining.js"></script>
     <script src="js/wasm_bridge.js"></script>
     <script src="js/main.js"></script>
 </body>

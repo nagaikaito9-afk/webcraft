@@ -1,4 +1,4 @@
-// High-Performance WebGL2 Shader & Voxel Mesh Renderer
+// High-Performance WebGL2 Shader & Voxel Mesh Renderer with Alpha Test & Destruction Cracks
 class WebGLRenderer {
     constructor(canvas) {
         this.canvas = canvas;
@@ -10,7 +10,7 @@ class WebGLRenderer {
 
         this.initGLState();
         this.initShaders();
-        this.initWireframeShader();
+        this.initOverlayShaders();
         this.vertexCount = 0;
     }
 
@@ -20,7 +20,9 @@ class WebGLRenderer {
         gl.depthFunc(gl.LEQUAL);
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.BACK);
-        gl.clearColor(0.55, 0.72, 0.98, 1.0); // Pre-Classic Minecraft Blue Sky
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.clearColor(0.55, 0.72, 0.98, 1.0); // Classic Blue Sky
     }
 
     createShader(gl, type, source) {
@@ -78,36 +80,62 @@ class WebGLRenderer {
         out vec4 fragColor;
 
         void main() {
-            // Determine Atlas Tile Offset (8 slots atlas)
-            float slot = 0.0;
             int bType = int(v_block_type + 0.5);
+            float slot = 0.0;
 
+            // Map 30+ Block Types to Texture Atlas Slots (16 cols x 4 rows atlas = 64 slots)
             if (bType == 1) { // Grass
                 if (v_normal.y > 0.5) slot = 0.0;      // Top Grass
                 else if (v_normal.y < -0.5) slot = 2.0; // Bottom Dirt
                 else slot = 1.0;                        // Side Grass
-            } else if (bType == 2) { // Dirt
-                slot = 2.0;
-            } else if (bType == 3) { // Stone
-                slot = 3.0;
-            } else if (bType == 4) { // Cobblestone
-                slot = 4.0;
-            } else if (bType == 5) { // Planks
-                slot = 5.0;
-            } else if (bType == 6) { // Bricks
-                slot = 6.0;
+            } else if (bType == 2)  slot = 2.0;  // Dirt
+            else if (bType == 3)  slot = 3.0;  // Stone
+            else if (bType == 4)  slot = 4.0;  // Cobblestone
+            else if (bType == 5) {             // Oak Log
+                if (v_normal.y > 0.5 || v_normal.y < -0.5) slot = 6.0;
+                else slot = 5.0;
             }
+            else if (bType == 6)  slot = 7.0;  // Leaves
+            else if (bType == 7)  slot = 8.0;  // Oak Planks
+            else if (bType == 8)  slot = 9.0;  // Sand
+            else if (bType == 9)  slot = 10.0; // Sandstone
+            else if (bType == 10) slot = 11.0; // Glass
+            else if (bType == 11) slot = 12.0; // Coal Ore
+            else if (bType == 12) slot = 13.0; // Iron Ore
+            else if (bType == 13) slot = 14.0; // Gold Ore
+            else if (bType == 14) slot = 15.0; // Diamond Ore
+            else if (bType == 15) slot = 16.0; // Obsidian
+            else if (bType == 16) slot = 17.0; // Bricks
+            else if (bType == 17) {            // Bookshelf
+                if (v_normal.y > 0.5 || v_normal.y < -0.5) slot = 8.0;
+                else slot = 18.0;
+            }
+            else if (bType == 18) slot = 19.0; // Mossy Cobble
+            else if (bType == 19) {            // Crafting Table
+                if (v_normal.y > 0.5) slot = 20.0;
+                else if (v_normal.z > 0.5) slot = 22.0; // Front
+                else slot = 21.0; // Side
+            }
+            else if (bType == 20) {            // Chest
+                if (v_normal.y > 0.5 || v_normal.y < -0.5) slot = 23.0;
+                else slot = 24.0;
+            }
+            else if (bType == 21) slot = 25.0; // TNT
+            else if (bType == 22) slot = 26.0; // Sponge
+            else if (bType >= 23 && bType <= 28) slot = float(27 + (bType - 23)); // Wools
 
-            // Map UV coordinates (0..1) to Atlas Slot
-            vec2 atlasUV = vec2((slot + v_uv.x) / 8.0, v_uv.y);
+            float col = mod(slot, 16.0);
+            float row = floor(slot / 16.0);
+            vec2 atlasUV = vec2((col + v_uv.x) / 16.0, (row + v_uv.y) / 4.0);
+
             vec4 texColor = texture(u_atlas, atlasUV);
+            if (texColor.a < 0.1) discard; // Alpha Cutout for leaves/glass gaps
 
-            // Shading with ambient light and directional face lighting
             vec3 lightColor = texColor.rgb * v_light;
 
-            // Distance Fog (Cave Game signature atmospheric fog)
+            // Distance Fog
             float dist = length(v_fragPos - u_cameraPos);
-            float fogFactor = clamp((dist - 30.0) / (65.0 - 30.0), 0.0, 0.85);
+            float fogFactor = clamp((dist - 40.0) / (110.0 - 40.0), 0.0, 0.85);
             vec3 fogColor = vec3(0.55, 0.72, 0.98);
 
             fragColor = vec4(mix(lightColor, fogColor, fogFactor), texColor.a);
@@ -121,7 +149,6 @@ class WebGLRenderer {
         gl.attachShader(this.program, fs);
         gl.linkProgram(this.program);
 
-        // Attributes
         this.attribs = {
             position: gl.getAttribLocation(this.program, 'a_position'),
             uv: gl.getAttribLocation(this.program, 'a_uv'),
@@ -130,19 +157,17 @@ class WebGLRenderer {
             light: gl.getAttribLocation(this.program, 'a_light')
         };
 
-        // Uniforms
         this.uniforms = {
             viewProj: gl.getUniformLocation(this.program, 'u_viewProj'),
             atlas: gl.getUniformLocation(this.program, 'u_atlas'),
             cameraPos: gl.getUniformLocation(this.program, 'u_cameraPos')
         };
 
-        // Create VAO and VBO for World Mesh
         this.vao = gl.createVertexArray();
         this.vbo = gl.createBuffer();
     }
 
-    initWireframeShader() {
+    initOverlayShaders() {
         const gl = this.gl;
         const vsSource = `#version 300 es
         in vec3 a_position;
@@ -153,9 +178,16 @@ class WebGLRenderer {
 
         const fsSource = `#version 300 es
         precision mediump float;
+        uniform float u_progress;
         out vec4 fragColor;
         void main() {
-            fragColor = vec4(0.0, 0.0, 0.0, 0.75); // Dark target wireframe
+            // Target Selection Box or Crack Fill
+            if (u_progress > 0.0) {
+                // Crack pattern simulation
+                fragColor = vec4(0.0, 0.0, 0.0, u_progress * 0.7);
+            } else {
+                fragColor = vec4(0.0, 0.0, 0.0, 0.75); // Target Wireframe
+            }
         }`;
 
         const vs = this.createShader(gl, gl.VERTEX_SHADER, vsSource);
@@ -166,13 +198,13 @@ class WebGLRenderer {
         gl.linkProgram(this.wireframeProgram);
 
         this.wireframeUniforms = {
-            viewProj: gl.getUniformLocation(this.wireframeProgram, 'u_viewProj')
+            viewProj: gl.getUniformLocation(this.wireframeProgram, 'u_viewProj'),
+            progress: gl.getUniformLocation(this.wireframeProgram, 'u_progress')
         };
 
         this.wireframeVao = gl.createVertexArray();
         this.wireframeVbo = gl.createBuffer();
 
-        // 12 lines for a 1x1x1 unit cube wireframe
         const cubeLines = new Float32Array([
             // Bottom
             0,0,0, 1,0,0,  1,0,0, 1,0,1,  1,0,1, 0,0,1,  0,0,1, 0,0,0,
@@ -211,31 +243,26 @@ class WebGLRenderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
         gl.bufferData(gl.ARRAY_BUFFER, floatData, gl.DYNAMIC_DRAW);
 
-        const stride = 10 * 4; // 10 floats per vertex, 4 bytes per float
-        // a_position (vec3)
+        const stride = 10 * 4;
         gl.enableVertexAttribArray(this.attribs.position);
         gl.vertexAttribPointer(this.attribs.position, 3, gl.FLOAT, false, stride, 0);
 
-        // a_uv (vec2)
         gl.enableVertexAttribArray(this.attribs.uv);
         gl.vertexAttribPointer(this.attribs.uv, 2, gl.FLOAT, false, stride, 3 * 4);
 
-        // a_normal (vec3)
         gl.enableVertexAttribArray(this.attribs.normal);
         gl.vertexAttribPointer(this.attribs.normal, 3, gl.FLOAT, false, stride, 5 * 4);
 
-        // a_block_type (float)
         gl.enableVertexAttribArray(this.attribs.blockType);
         gl.vertexAttribPointer(this.attribs.blockType, 1, gl.FLOAT, false, stride, 8 * 4);
 
-        // a_light (float)
         gl.enableVertexAttribArray(this.attribs.light);
         gl.vertexAttribPointer(this.attribs.light, 1, gl.FLOAT, false, stride, 9 * 4);
 
         gl.bindVertexArray(null);
     }
 
-    render(camera, targetBlock = null) {
+    render(camera, targetBlock = null, miningProgress = 0.0) {
         const gl = this.gl;
         gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -258,20 +285,19 @@ class WebGLRenderer {
         gl.bindVertexArray(this.vao);
         gl.drawArrays(gl.TRIANGLES, 0, this.vertexCount);
 
-        // Draw Target Block Wireframe Overlay
+        // Draw Target Wireframe & Mining Overlay
         if (targetBlock) {
             gl.useProgram(this.wireframeProgram);
 
-            // Translate matrix to target block offset
             let model = Mat4.identity();
             model[12] = targetBlock[0] - 0.002;
             model[13] = targetBlock[1] - 0.002;
             model[14] = targetBlock[2] - 0.002;
-            // Slightly scale wireframe to avoid z-fighting
             model[0] = 1.004; model[5] = 1.004; model[10] = 1.004;
 
             let wireframeViewProj = Mat4.multiply(viewProj, model);
             gl.uniformMatrix4fv(this.wireframeUniforms.viewProj, false, wireframeViewProj);
+            gl.uniform1f(this.wireframeUniforms.progress, miningProgress);
 
             gl.bindVertexArray(this.wireframeVao);
             gl.lineWidth(2.5);
